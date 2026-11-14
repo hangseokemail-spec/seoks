@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seoks 증시현황판</title>
+<meta name="description" content="미국 증시 현황, 트랜드캐치, 유동성을 매일 아침 정리하는 Seoks 현황판">
+<meta name="theme-color" content="#081122">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Seoks">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="hdr">
+    <div class="brand">Seoks</div>
+    <h1 id="title">불러오는 중…</h1>
+    <div class="stamp" id="stamp"></div>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button class="tab" data-t="board" role="tab">증시현황판</button>
+    <button class="tab" data-t="tc" role="tab">트랜드캐치</button>
+    <button class="tab" data-t="lq" role="tab">유동성</button>
+  </nav>
+  <section class="sheet">
+    <div class="datebar" id="datebar"></div>
+    <div id="view"></div>
+  </section>
+  <div class="foot">Seoks는 공개 데이터를 자동으로 모아 계산한 참고 자료이며 투자 권유가 아닙니다. 자료: finviz, 네이버 증권, FRED(세인트루이스 연준), Cboe, AAII, CNN, FINRA. 코멘트는 Claude가 작성합니다.</div>
+</div>
+<div class="modal" id="modal" role="dialog" aria-modal="true"><div class="mbox" id="mbox"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="assets/meta.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

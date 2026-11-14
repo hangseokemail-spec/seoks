@@ -1,34 +1,140 @@
 {
-  "_note": "웹에서 확인하는 지표. 매일 아침 Claude가 갱신. date=해당 값의 기준일(미국 날짜), aaii는 발표일(목), margin은 월.",
-  "fg": [
-    {"date": "2026-10-13", "value": 44, "src": "Benzinga (CNN Fear & Greed 인용)"},
-    {"date": "2026-10-14", "value": 32, "src": "Benzinga (CNN Fear & Greed 인용)"},
-    {"date": "2026-11-05", "value": 20, "src": "Finwire (CNN Fear & Greed 인용)"}
-  ],
-  "aaii": [
-    {"date": "2026-09-17", "bull": 28.8, "bear": 53.3, "spread": -24.5, "src": "AAII"},
-    {"date": "2026-10-08", "bull": 40.3, "bear": 39.0, "spread": 1.3, "src": "AAII"},
-    {"date": "2026-10-15", "bull": 38.7, "bear": 41.6, "spread": -2.9, "src": "AAII"},
-    {"date": "2026-10-22", "bull": 36.9, "bear": 45.8, "spread": -8.9, "src": "AAII"},
-    {"date": "2026-10-29", "bull": 37.8, "bear": 41.4, "spread": -3.6, "src": "AAII"},
-    {"date": "2026-11-05", "bull": 34.1, "bear": 48.4, "spread": -14.3, "src": "AAII"}
-  ],
-  "pc": [
-    {"date": "2026-11-05", "value": 1.06, "src": "Cboe daily market statistics"},
-    {"date": "2026-11-13", "value": 0.85, "src": "Cboe daily market statistics"}
-  ],
-  "margin": [
-    {"month": "2025-06", "value": 1008000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2025-07", "value": 1023000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2025-08", "value": 1060000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2025-09", "value": 1126000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2025-10", "value": 1184000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2025-11", "value": 1214000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2025-12", "value": 1226000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2026-01", "value": 1279000, "src": "FINRA (YCharts 인용)"},
-    {"month": "2026-05", "value": 1416000, "yoy": 53.7, "src": "FINRA (YCharts·thetrading.tools 인용)"},
-    {"month": "2026-06", "value": 1502072, "yoy": 49.0, "src": "FINRA"},
-    {"month": "2026-07", "value": 1417225, "src": "FINRA"},
-    {"month": "2026-09", "value": 1479600, "yoy": 31.4, "src": "FINRA (BofA 인용, 금액은 YoY로 역산)"}
-  ]
+ "_note": "웹에서 확인하는 지표. 매일 아침 Claude가 갱신. date=해당 값의 기준일(미국 날짜), aaii는 발표일(목), margin은 월.",
+ "fg": [
+  {
+   "date": "2026-10-13",
+   "value": 44,
+   "src": "Benzinga (CNN Fear & Greed 인용)"
+  },
+  {
+   "date": "2026-10-14",
+   "value": 32,
+   "src": "Benzinga (CNN Fear & Greed 인용)"
+  },
+  {
+   "date": "2026-11-05",
+   "value": 20,
+   "src": "Finwire (CNN Fear & Greed 인용)"
+  }
+ ],
+ "aaii": [
+  {
+   "date": "2026-09-17",
+   "bull": 28.8,
+   "bear": 53.3,
+   "spread": -24.5,
+   "src": "AAII"
+  },
+  {
+   "date": "2026-10-08",
+   "bull": 40.3,
+   "bear": 39.0,
+   "spread": 1.3,
+   "src": "AAII"
+  },
+  {
+   "date": "2026-10-15",
+   "bull": 38.7,
+   "bear": 41.6,
+   "spread": -2.9,
+   "src": "AAII"
+  },
+  {
+   "date": "2026-10-22",
+   "bull": 36.9,
+   "bear": 45.8,
+   "spread": -8.9,
+   "src": "AAII"
+  },
+  {
+   "date": "2026-10-29",
+   "bull": 37.8,
+   "bear": 41.4,
+   "spread": -3.6,
+   "src": "AAII"
+  },
+  {
+   "date": "2026-11-05",
+   "bull": 34.1,
+   "bear": 48.4,
+   "spread": -14.3,
+   "src": "AAII"
+  }
+ ],
+ "pc": [
+  {
+   "date": "2026-11-05",
+   "value": 1.06,
+   "src": "Cboe daily market statistics"
+  },
+  {
+   "date": "2026-11-13",
+   "value": 0.85,
+   "src": "Cboe daily market statistics"
+  }
+ ],
+ "margin": [
+  {
+   "month": "2025-06",
+   "value": 1008000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2025-07",
+   "value": 1023000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2025-08",
+   "value": 1060000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2025-09",
+   "value": 1126000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2025-10",
+   "value": 1184000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2025-11",
+   "value": 1214000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2025-12",
+   "value": 1226000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2026-01",
+   "value": 1279000,
+   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+  },
+  {
+   "month": "2026-05",
+   "value": 1416000,
+   "yoy": 53.7,
+   "src": "FINRA (YCharts 인용 금액 · 전년비는 thetrading.tools 인용)"
+  },
+  {
+   "month": "2026-06",
+   "value": 1502072,
+   "yoy": 49.0,
+   "src": "FINRA"
+  },
+  {
+   "month": "2026-07",
+   "value": 1417225,
+   "src": "FINRA"
+  },
+  {
+   "month": "2026-09",
+   "yoy": 31.4,
+   "src": "FINRA (BofA 인용, 전년비만 확인)"
+  }
+ ]
 }

@@ -9,6 +9,7 @@
 
 ## 구조
 - `scripts/collect.py` — finviz Elite, 네이버 증권, FRED에서 수집해 `data/`에 JSON 생성 (키는 환경변수, 저장소에 없음)
+- `scripts/analyze.py` — 지표별 예측력(선행·후행) 분석 → `data/analysis.json`
 - `data/manual.json` — 웹에서 확인하는 지표(CNN F&G, AAII, Cboe Put/Call, FINRA 신용융자)
 - `data/comments/` — 매일 Claude가 쓰는 코멘트
 - `DAILY.md` — 매일 아침 Claude 예약 작업 절차

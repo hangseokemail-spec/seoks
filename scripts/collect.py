@@ -106,6 +106,38 @@ def finviz_screen(filters, order=None):
     time.sleep(0.8)
     return list(csv.DictReader(io.StringIO(txt)))
 
+def finviz_intraday(t, date):
+    """finviz 5분봉(봉 시작 시각)에서 정규장 09:30~15:55 봉 → 마지막 봉 종가 = 16:00 종가."""
+    try:
+        b = http(f"https://elite.finviz.com/quote_export.ashx?t={t}&p=i5&auth={FINVIZ}")
+        df = pd.read_csv(io.BytesIO(b))
+        # finviz는 24시간 표기에 AM/PM이 붙어 나옴 ("19:55 PM") → 접미사 제거
+        df["ts"] = pd.to_datetime(df["Date"].str.replace(r"\s*[AP]M$", "", regex=True), format="%m/%d/%Y %H:%M")
+        reg = df[(df.ts.dt.time >= dt.time(9, 30)) & (df.ts.dt.time < dt.time(16, 0))]
+        day = reg[reg.ts.dt.date == date.date()]
+        prev = reg[reg.ts.dt.date < date.date()]
+        if len(day) < 10:
+            return None
+        return {"src": t, "pts": [rnd(x, 3) for x in day.Close.values], "prev": rnd(prev.Close.iloc[-1], 3) if len(prev) else None,
+                "t0": day.ts.iloc[0].strftime("%H:%M"), "t1": day.ts.iloc[-1].strftime("%H:%M")}
+    except Exception as e:  # noqa
+        print("  장중 데이터 실패", t, e)
+        return None
+
+
+def naver_kospi_intraday(date):
+    try:
+        d = date.strftime("%Y%m%d")
+        x = json.loads(http(f"https://api.stock.naver.com/chart/domestic/index/KOSPI/minute?startDateTime={d}0000&endDateTime={d}2359"))
+        pts = [float(v["currentPrice"]) for v in x]
+        if len(pts) < 10:
+            return None
+        return {"src": "KOSPI", "pts": [rnd(v, 2) for v in pts[::5]] + ([rnd(pts[-1], 2)] if (len(pts) - 1) % 5 else []), "prev": None,
+                "t0": x[0]["localDateTime"][8:12], "t1": x[-1]["localDateTime"][8:12]}
+    except Exception as e:  # noqa
+        print("  코스피 장중 실패", e)
+        return None
+
 # ---------------------------------------------------------------- 점수표
 # hi: 값이 클수록 점수가 높음 (cuts = 5점/4점/3점/2점 경계, 초과 기준)
 # lo: 값이 작을수록 점수가 높음 (cuts = 5점/4점/3점/2점 경계, 미만 기준)
@@ -418,6 +450,32 @@ def build_board(date, df):
     prev_keys = [k for k in sorted(bh) if k < key]
     prev = {"date": prev_keys[-1], **bh[prev_keys[-1]]} if prev_keys else None
 
+    spset = {r["Ticker"] for r in sp}
+    notes = jload(os.path.join(DATA, "notes", "companies.json"), {})
+    def item(r):
+        t = r["Ticker"]
+        return {"t": t, "name": r["Company"], "sector": SECTOR_KO.get(r["Sector"], r["Sector"]), "ind": r["Industry"],
+                "country": r["Country"], "mcap": fnum(r["Market Cap"]), "price": fnum(r["Price"]), "chg": fnum(r["Change"]),
+                "sp": t in spset, "desc": (notes.get(t) or {}).get("desc")}
+    # 섹터·산업 강도: 시총가중 등락률 (ETF·SPAC 제외)
+    agg, iagg = {}, {}
+    for r in allrows:
+        c, m = fnum(r["Change"]), fnum(r["Market Cap"])
+        if c is None or not m or r["Industry"] in ("Exchange Traded Fund", "Shell Companies"):
+            continue
+        for key2, store in ((SECTOR_KO.get(r["Sector"], r["Sector"]), agg), (r["Industry"], iagg)):
+            a = store.setdefault(key2, {"w": 0.0, "wc": 0.0, "n": 0, "up": 0, "sec": SECTOR_KO.get(r["Sector"], r["Sector"])})
+            a["w"] += m; a["wc"] += m * c; a["n"] += 1; a["up"] += c > 0
+    sector_perf = sorted([{"name": k, "chg": rnd(v["wc"] / v["w"], 2), "up_pct": rnd(v["up"] / v["n"] * 100, 0), "n": v["n"]}
+                          for k, v in agg.items() if v["n"] >= 20], key=lambda x: -x["chg"])
+    inds = [{"name": k, "sector": v["sec"], "chg": rnd(v["wc"] / v["w"], 2), "n": v["n"]} for k, v in iagg.items() if v["n"] >= 8 and v["w"] >= 50000]
+    inds.sort(key=lambda x: -x["chg"])
+    # 강세주·약세주: S&P500 안에서
+    sp_rows = [r for r in allrows if r["Ticker"] in spset and fnum(r["Change"]) is not None]
+    gainers = [item(r) for r in sorted(sp_rows, key=lambda r: -fnum(r["Change"]))[:10]]
+    losers = [item(r) for r in sorted(sp_rows, key=lambda r: fnum(r["Change"]))[:5]]
+    mega = [item(r) for r in sorted(sp_rows, key=lambda r: -(fnum(r["Market Cap"]) or 0))[:10]]
+
     # 신고가: 특수증권 제외 → 시총 상위 40
     excl = {"preferred": [], "spac": 0, "etf": 0, "dup": []}
     clean, seen = [], {}
@@ -433,18 +491,16 @@ def build_board(date, df):
         if base in seen:
             excl["dup"].append(r["Ticker"]); continue
         seen[base] = r["Ticker"]
-        clean.append({"t": r["Ticker"], "name": name, "sector": SECTOR_KO.get(r["Sector"], r["Sector"]),
-                      "ind": ind, "country": r["Country"], "mcap": fnum(r["Market Cap"]),
-                      "price": fnum(r["Price"]), "chg": fnum(r["Change"])})
+        clean.append(item(r))
     top = clean[:40]
     sec = {}
     for r in top:
         sec[r["sector"]] = sec.get(r["sector"], 0) + 1
     sectors = [{"name": k, "count": v, "pct": rnd(v / len(top) * 100, 1)} for k, v in sorted(sec.items(), key=lambda x: -x[1])]
-    big = [r for r in top if (r["mcap"] or 0) >= 10000]
-    feats = sorted(big, key=lambda r: -(r["chg"] or -99))[:8]
-    if len(feats) < 8:
-        feats += [r for r in top if r not in feats][: 8 - len(feats)]
+    # 대표 신고가: S&P500 구성종목만, 당일 상승률 순 최대 8개
+    feats = sorted([r for r in clean if r["sp"]], key=lambda r: -(r["chg"] or -99))[:8]
+    intraday = {"ndx": finviz_intraday("QQQ", date), "spx": finviz_intraday("SPY", date),
+                "dji": finviz_intraday("DIA", date), "kospi": naver_kospi_intraday(date)}
 
     row = df.loc[date]
     def ix(k, n=2):
@@ -462,7 +518,9 @@ def build_board(date, df):
                     "us10y": {"close": rnd(y.iloc[-1], 2), "chg_bp": rnd((y.iloc[-1] - y.iloc[-2]) * 100, 0),
                               "spark": [rnd(x, 2) for x in y.iloc[-6:].values], "obs_note": "FRED DGS10, 전일 기준"}},
         "breadth": breadth, "prev": prev, "nh_total": len(nh), "excluded": excl,
-        "top40": top, "sectors": sectors, "features": feats,
+        "top40": top, "sectors": sectors, "features": feats, "nh_sp500": sum(1 for r in clean if r["sp"]),
+        "sector_perf": sector_perf, "ind_top": inds[:5], "ind_bottom": inds[-5:][::-1],
+        "gainers": gainers, "losers": losers, "mega": mega, "intraday": intraday,
         "tc": rnd(row["tc"], 1), "lq": rnd(row["lq"], 1),
     }
     jsave(os.path.join(DATA, "board", f"{key}.json"), board)

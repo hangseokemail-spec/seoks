@@ -7,7 +7,8 @@ const BASE = 'https://hangseokemail-spec.github.io/seoks/';
 
 function setup() {
   const ss = SpreadsheetApp.getActive();
-  ['일별기록', '현황판', '구독자'].forEach(function (n) { if (!ss.getSheetByName(n)) ss.insertSheet(n); });
+  if (!ss.getSheetByName('일별기록')) ss.getSheets()[0].setName('일별기록');
+  ['현황판', '구독자'].forEach(function (n) { if (!ss.getSheetByName(n)) ss.insertSheet(n); });
   const sub = ss.getSheetByName('구독자');
   if (sub.getLastRow() === 0) sub.appendRow(['이메일', '이름', '메일 받기(Y/N)']);
   ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
@@ -36,12 +37,24 @@ function daily() {
 function labelTC_(x) { return x == null ? '' : x >= 4.5 ? '광기' : x >= 3.5 ? '과열' : x >= 2.5 ? '중립' : x >= 1.5 ? '불안' : '공포'; }
 function labelLQ_(x) { return x == null ? '' : x >= 4.5 ? '풍부' : x >= 3.5 ? '우호' : x >= 2.5 ? '중립' : x >= 1.5 ? '긴축' : '경색'; }
 
+const COLS = [['spx','S&P500'],['ixic','나스닥종합'],['dji','다우'],['ndx','나스닥100'],['kospi','코스피'],['vix','VIX'],['dxy','달러인덱스'],['us10y','미10년물'],
+  ['tc','트랜드캐치'],['#tc','트랜드캐치 판단'],['tc_n','트랜드캐치 지표수'],['lq','유동성'],['#lq','유동성 판단'],
+  ['tc_fg','F&G'],['s_tc_fg','F&G 점수'],['tc_aaii','AAII 스프레드'],['s_tc_aaii','AAII 점수'],['tc_vix','VIX 값'],['s_tc_vix','VIX 점수'],
+  ['tc_hy','하이일드%'],['s_tc_hy','하이일드 점수'],['tc_pc','풋콜'],['s_tc_pc','풋콜 점수'],['tc_margin','신용융자 YoY%'],['s_tc_margin','신용융자 점수'],
+  ['tc_a200','S&P500 200일선 위%'],['s_tc_a200','200일선 점수'],['tc_rsi','RSI14'],['s_tc_rsi','RSI 점수'],['tc_dev','200일 이격도%'],['s_tc_dev','이격도 점수'],
+  ['lq_fed','연준자산 3M%'],['s_lq_fed','연준자산 점수'],['lq_nl','순유동성 3M%'],['s_lq_nl','순유동성 점수'],['lq_m2','M2 YoY%'],['s_lq_m2','M2 점수'],
+  ['lq_effr','EFFR 3M %p'],['s_lq_effr','EFFR 점수'],['lq_dxy','DXY 6M%'],['s_lq_dxy','DXY 점수'],['lq_bank','은행신용 YoY%'],['s_lq_bank','은행신용 점수'],
+  ['lq_vol','거래량 20일대비%'],['s_lq_vol','거래량 점수'],['lq_nfci','NFCI'],['s_lq_nfci','NFCI 점수'],['lq_y10_chg','10년물 13주 변화bp'],['s_lq_y10','10년물 점수']];
+
 function writeSeries_(s) {
   const sh = SpreadsheetApp.getActive().getSheetByName('일별기록');
-  const keys = Object.keys(s.cols);
-  const head = ['날짜', '트랜드캐치 판단', '유동성 판단'].concat(keys);
+  const head = ['날짜'].concat(COLS.map(function (c) { return c[1]; }));
   const rows = s.dates.map(function (d, i) {
-    return [d, labelTC_(s.cols.tc[i]), labelLQ_(s.cols.lq[i])].concat(keys.map(function (k) { const v = s.cols[k][i]; return v == null ? '' : v; }));
+    return [d].concat(COLS.map(function (c) {
+      if (c[0] === '#tc') return labelTC_(s.cols.tc[i]);
+      if (c[0] === '#lq') return labelLQ_(s.cols.lq[i]);
+      const a = s.cols[c[0]]; const v = a ? a[i] : null; return v == null ? '' : v;
+    }));
   }).reverse();
   sh.clearContents();
   sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');

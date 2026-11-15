@@ -16,6 +16,7 @@
 - `FABLE.md` — 해석·편집 담당(Fable) 지침
 - `scripts/brief.py` — Fable에게 넘길 자료 묶음(`data/raw/brief_<날짜>.json`, 커밋 안 됨)
 - `scripts/check_comments.py` — 코멘트 형식·숫자 대조 검사
+- `scripts/export_db.py` — 날짜별 기록 DB `data/db.csv` (구글 시트 'Seoks 날짜별 기록'이 IMPORTDATA로 읽음)
 - `scripts/backfill_sp500_ma.py` — S&P500 50·200일선 위 비율 과거값(2017~)을 구성종목 일봉으로 계산 (한 번만 실행)
 - `apps-script/Code.gs` — 구글 시트 기록·구독자 메일
 

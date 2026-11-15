@@ -84,6 +84,7 @@ python3 scripts/check_comments.py <날짜>
 
 ## 8. 저장 (1분) — Opus
 ```
+python3 scripts/export_db.py      # 날짜별 기록 DB(data/db.csv) 갱신 → 구글 시트 'Seoks 날짜별 기록'이 자동으로 읽음
 git add data && git commit -m "data: <날짜>" && git -c push.negotiate=true push
 ```
 (`data/raw/`는 .gitignore 대상이라 자료 묶음·사실 조사 파일은 올라가지 않는다.)

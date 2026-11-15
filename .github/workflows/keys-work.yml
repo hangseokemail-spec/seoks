@@ -1,0 +1,44 @@
+name: 열쇠가 필요한 일 (수집·알림·열쇠 확인)
+# 예약 작업 세션은 열쇠를 갖지 않는다. 세션이 .github/triggers/<일> 파일에 "인자 시각"을 써서 푸시하면 이 작업이 GitHub 비밀값으로 돌린다.
+on:
+  push:
+    paths: ['.github/triggers/collect', '.github/triggers/notify', '.github/triggers/check']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: keys-work
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -q pandas numpy
+      - name: 무엇을 할지
+        id: what
+        run: |
+          f=$(git diff --name-only HEAD~1 HEAD -- .github/triggers | head -1)
+          [ -n "$f" ] || f=.github/triggers/check
+          echo "job=$(basename $f)" >> $GITHUB_OUTPUT
+          # 첫 낱말이 '-'로 시작하면 collect.py 인자, 마지막 낱말(시각)은 버린다
+          echo "args=$(awk '{for(i=1;i<NF;i++) if ($i ~ /^--/) printf "%s ", $i}' $f)" >> $GITHUB_OUTPUT
+      - name: 실행
+        env:
+          FINVIZ_AUTH: ${{ secrets.FINVIZ_AUTH }}
+          FRED_KEY: ${{ secrets.FRED_KEY }}
+          ONESIGNAL_KEY: ${{ secrets.ONESIGNAL_KEY }}
+        run: python scripts/actions_run.py ${{ steps.what.outputs.job }} ${{ steps.what.outputs.args }}
+      - name: 저장
+        if: always()
+        run: |
+          git config user.name "seoks-bot"
+          git config user.email "seoks-bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -qm "data: ${{ steps.what.outputs.job }} (GitHub 작업)"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 5; done

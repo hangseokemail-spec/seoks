@@ -292,3 +292,10 @@ table.st .ds{color:var(--sub);font-size:13.5px}
   .chartbox{height:190px}
   .modal{padding:0}
 }
+
+/* v3.1: 좁은 타일에서 기준일·점수 줄바꿈 정리 */
+.pill{white-space:nowrap}
+.tile .v{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+.tile .v .ob{margin-left:0}
+.tile .f{flex-wrap:wrap;gap:4px 6px}
+@media (max-width:560px){.tile .f .w{display:none}}

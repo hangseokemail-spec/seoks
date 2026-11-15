@@ -103,6 +103,35 @@ def ind_ko():
         return {}
 
 
+def explain_zones():
+    """assets/meta.js 의 EXPLAIN.zones(역풍·순풍 구간별 뜻·행동 기준)를 읽는다. 화면과 같은 기준을 쓰기 위해."""
+    try:
+        js = open(os.path.join(ROOT, "assets", "meta.js"), encoding="utf-8").read()
+        blk = js[js.index("zones: {", js.index("const EXPLAIN")):]
+        blk = blk[:blk.index("\n    },")]
+        out = {}
+        for nm, body in re.findall(r'"([^"]+)":\s*\{([^}]*)\}', blk):
+            out[nm] = dict(re.findall(r'(\w+):\s*"([^"]*)"', body))
+        return out
+    except ValueError:
+        return {}
+
+
+def zone_stats(corr, kind, label):
+    """지금 점수 구간일 때 과거 N주 뒤 지수 성적 (corr.json 구간별 막대와 같은 값)."""
+    out = {}
+    for ix, nm in (("spx", "S&P500"), ("ndx", "나스닥100"), ("kospi", "코스피")):
+        cr = ((corr or {}).get(kind) or {}).get(ix) or {}
+        for h, hn in (("1", "1주뒤"), ("4", "4주뒤"), ("12", "12주뒤")):
+            bk = (cr.get("buckets") or {}).get(h) or {}
+            tn = sum(r["n"] for r in bk.values())
+            avg = round(sum(r["mean"] * r["n"] for r in bk.values()) / tn, 2) if tn else None
+            cur = bk.get(label)
+            out[f"{nm}_{hn}"] = {"지금구간": label, "평균%": cur and cur["mean"], "오른비율%": cur and cur["win"], "표본_주": cur and cur["n"],
+                                "전체평균%": avg, "순위상관": (cr.get("ic") or {}).get(h)}
+    return out
+
+
 def main():
     latest = load(os.path.join(DATA, "latest.json"), {})
     date = sys.argv[1] if len(sys.argv) > 1 else latest.get("date")
@@ -159,6 +188,14 @@ def main():
         row["VIX"] = v("vix", j)
         recent.append(row)
 
+    corr = load(os.path.join(DATA, "corr.json"), {})
+    # 시나리오용 경계값: 지금 유동성(트렌드캐치)이 그대로일 때 풍향계 45·55·70·30이 되는 트렌드캐치(유동성) 값
+    bounds = None
+    if tc is not None and lq is not None:
+        bounds = {"설명": "풍향계 = 65 − 15×트렌드캐치 + 10×유동성. 한쪽이 그대로일 때 다른 쪽이 이 값이 되면 해당 경계에 닿음",
+                  "유동성 그대로일 때 트렌드캐치": {f"풍향계 {w}": round((65 + 10 * lq - w) / 15, 2) for w in (30, 45, 55, 70)},
+                  "트렌드캐치 그대로일 때 유동성": {f"풍향계 {w}": round((w - 65 + 15 * tc) / 10, 2) for w in (30, 45, 55, 70)}}
+
     out = {
         "_안내": "Fable(해석·편집 담당)은 이 파일의 사실·숫자만 사용한다. 여기 없는 원인·실적·뉴스는 쓰지 않는다.",
         "date": date, "date_1주전": dates[iw], "generated": dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M KST"),
@@ -170,11 +207,14 @@ def main():
                  "이후_순위상관_S&P500": ((wind.get("lead") or {}).get("spx") or {}).get("fwd"),
                  "이후_순위상관_나스닥100": ((wind.get("lead") or {}).get("ndx") or {}).get("fwd"),
                  "지난수익률과_순위상관_S&P500": ((wind.get("lead") or {}).get("spx") or {}).get("past"),
-                 "검증기간": f"{wind.get('start')} ~ {wind.get('end')}", "거래일_이름": wind.get("hname")},
+                 "검증기간": f"{wind.get('start')} ~ {wind.get('end')}", "거래일_이름": wind.get("hname"),
+                 "역풍순풍_행동": explain_zones(), "구간경계_계산": bounds},
         "트렌드캐치": {"값": tc, "판단": label(tc, TC_LABELS), "행동힌트": TC_ACTION.get(label(tc, TC_LABELS)),
-                   "1주전": tcw, "반영_지표수": v("tc_n"), "종합_예측력": a13("tc"), "지표": tc_items},
+                   "1주전": tcw, "반영_지표수": v("tc_n"), "종합_예측력": a13("tc"),
+                   "현재구간_과거성적": zone_stats(corr, "tc", label(tc, TC_LABELS)), "지표": tc_items},
         "유동성": {"값": lq, "판단": label(lq, LQ_LABELS), "1주전": lqw, "반영_가중치%": v("lq_w"),
-                "카테고리_평균점수": cat_avg, "종합_예측력": a13("lq"), "지표": lq_items, "보조값": extra},
+                "카테고리_평균점수": cat_avg, "종합_예측력": a13("lq"),
+                "현재구간_과거성적": zone_stats(corr, "lq", label(lq, LQ_LABELS)), "지표": lq_items, "보조값": extra},
         "지수_최근10거래일_일별등락%": recent,
         "웹지표_최신": {k: (manual.get(k) or [None])[-1] for k in ("fg", "aaii", "pc", "margin")},
     }

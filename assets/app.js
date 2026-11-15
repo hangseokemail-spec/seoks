@@ -165,10 +165,27 @@
         <span class="ich-bl ${by < 30 ? "below" : ""}" style="top:${by}%">전일 ${fmt(base)}</span></div>
       <div class="ich-x"><span>${short(p[0].d)}</span><span>최근 6거래일</span><span>${short(p[p.length - 1].d)}</span></div>`;
   }
+  const TONE_NM = { up: "좋음", down: "나쁨", flat: "중립" };
+  const toneTag = (t) => TONE_NM[t] ? `<em class="tn t-${t}">${TONE_NM[t]}</em>` : "";
   function pointsBlock(title, pts, kind) {
     if (!pts || !pts.length) return "";
-    return `<div class="card sec pts ${kind || ""}"><h3>${title}</h3><ol>${pts.map((p, n) => `<li><span class="no">${n + 1}</span><div>${p.h ? `<b>${esc(p.h)}</b>` : ""}<p>${esc(p.t)}</p></div></li>`).join("")}</ol>
+    return `<div class="card sec pts ${kind || ""}"><h3>${title}</h3><ol>${pts.map((p, n) => `<li class="${TONE_NM[p.tone] ? "t-" + p.tone : ""}"><span class="no">${n + 1}</span><div>${p.h ? `<b>${toneTag(p.tone)}${esc(p.h)}</b>` : ""}<p>${esc(p.t)}</p></div></li>`).join("")}</ol>
       <div class="note">숫자에 근거한 판단 보조입니다. 투자 권유가 아니며, 결정은 각자 하셔야 합니다.</div></div>`;
+  }
+  function scenarioBlock(sc, title = "앞으로 이렇게 되면") {
+    if (!sc || !sc.length) return "";
+    return `<div class="card sec scen"><h3>${title}</h3><div class="cap">어떤 숫자가 어떻게 바뀌면 판단이 달라지는지 미리 정해 둔 기준입니다 · 초록 = 좋아지는 경우, 빨강 = 나빠지는 경우</div>
+      <div class="scl">${sc.map((s) => `<div class="sc t-${TONE_NM[s.tone] ? s.tone : "flat"}"><div class="if"><span>만약</span>${esc(s.if)}</div><div class="then"><span>그러면</span>${esc(s.then)}</div></div>`).join("")}</div></div>`;
+  }
+  const icWords = (ic) => { if (ic == null) return "자료 없음"; const a = Math.abs(ic); return (M.EXPLAIN.ic_words.find(([lim]) => a < lim) || [0, ""])[1]; };
+  function rankCorr(a, b) {
+    const pr = []; a.forEach((x, k) => { if (x != null && b[k] != null) pr.push([x, b[k]]); });
+    if (pr.length < 30) return null;
+    const rk = (v) => { const o = v.map((x, k) => [x, k]).sort((p, q) => p[0] - q[0]), r = new Array(v.length); let s = 0;
+      while (s < o.length) { let e = s; while (e + 1 < o.length && o[e + 1][0] === o[s][0]) e++; for (let m = s; m <= e; m++) r[o[m][1]] = (s + e) / 2; s = e + 1; } return r; };
+    const x = rk(pr.map((p) => p[0])), y = rk(pr.map((p) => p[1])), n = x.length, mx = x.reduce((s, v) => s + v, 0) / n, my = y.reduce((s, v) => s + v, 0) / n;
+    let sxy = 0, sxx = 0, syy = 0; for (let k = 0; k < n; k++) { sxy += (x[k] - mx) * (y[k] - my); sxx += (x[k] - mx) ** 2; syy += (y[k] - my) ** 2; }
+    return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null;
   }
   const asPoints = (arr, fallback) => (arr && arr.length) ? arr.map((x) => typeof x === "string" ? { h: "", t: x } : x) : (fallback ? [{ h: "", t: fallback }] : []);
   function bandPlugin(CC) {
@@ -304,91 +321,136 @@
     const TN = { up: "좋음", down: "나쁨", flat: "보통" };
     return `<div class="wk">${cards.map((c) => `<button class="wkc t-${c.tone}" data-go="${c.go}"><span class="tg">${c.tag}<em>${TN[c.tone]}</em></span><b>${esc(c.title)}</b><span class="sb">${esc(c.sub)}</span><span class="more">자세히 →</span></button>`).join("")}</div>`;
   }
+  function zoneBounds() { const zs = S.wind.zones; return zs.map((z, k) => [z.from, k + 1 < zs.length ? zs[k + 1].from : 100]); }
+  function verdictBlock(z, wc) {
+    const E = (M.EXPLAIN.zones || {})[z.name] || {}, g = wc.guide || {};
+    const verdict = wc.verdict || (E.mean ? `지금은 '${z.name}' — ${E.mean}입니다. ${E.buy}.` : "");
+    const rows = [["새로 사기", g.buy || E.buy], ["갖고 있는 주식", g.hold || E.hold], ["조심할 것", g.watch]].filter((r) => r[1]);
+    if (!verdict && !rows.length) return "";
+    return `<div class="verdict" style="border-color:${z.color}"><div class="vh" style="color:${z.color}">총평</div><div class="vt">${esc(verdict)}</div>
+      ${rows.length ? `<div class="vg">${rows.map(([k, v]) => `<div class="vr"><span>${k}</span><b>${esc(v)}</b></div>`).join("")}</div>` : ""}
+      <div class="vn">지표에 근거한 판단 보조이며 투자 권유가 아닙니다.</div></div>`;
+  }
+  function windMeaning(cur) {
+    const E = M.EXPLAIN, st = S.wind.stats.spx["60"] || {}, nd = (S.wind.stats.ndx || {})["60"] || {};
+    const bd = zoneBounds(), rows = S.wind.zones.map((z, k) => ({ z, lo: bd[k][0], hi: bd[k][1] })).reverse();
+    const past = (r, nm) => r ? `<b class="num ${cls(r.mean)}">${sgn(r.mean, 1, "%")}</b><span>오른 경우 ${n2(r.win, 0)}% · ${r.n}일</span>` : `<b class="muted">사례 없음</b><span>아직 이 구간에 온 적이 없음</span>`;
+    return `<div class="card sec wmean"><h3>역풍·순풍이 뭔가요?</h3><p class="wi">${esc(E.wind_intro)}</p>
+      <div class="zl"><div class="zr zh"><span>구간 (점수)</span><span>뜻</span><span>새로 사기 · 갖고 있는 주식</span><span>과거 3개월 뒤 S&P500</span></div>
+      ${rows.map(({ z, lo, hi }) => { const Z = E.zones[z.name] || {};
+        return `<div class="zr ${z.name === cur ? "cur" : ""}" style="--zc:${z.color}"><span class="zn"><i style="background:${z.color}"></i><b>${z.name}</b><em class="num">${lo}~${hi}</em>${z.name === cur ? `<u>지금</u>` : ""}</span>
+          <span class="zm">${esc(Z.mean || "")}</span><span class="za"><b>${esc(Z.buy || "")}</b>${esc(Z.hold || "")}</span><span class="zp">${past(st[z.name])}${nd[z.name] ? `<span>나스닥100 ${sgn(nd[z.name].mean, 1, "%")}</span>` : ""}</span></div>`; }).join("")}</div>
+      <div class="note">${esc(E.zone_note)} 전체 평균: S&P500 ${st["전체"] ? sgn(st["전체"].mean, 1, "%") : "—"}.</div></div>`;
+  }
   async function viewWind() {
     const i = idxOf(S.date), d = D()[i], b = await board(d), cm = (await comments(d)) || {};
     const v = windAt(i), z = zoneOf(v), v0 = windAt(i - 5), wc = cm.wind || {};
     const sent = windPart("sent", i), liq = windPart("liq", i);
     const part = (nm, val, col, note) => `<div class="wp"><div class="wpn">${nm}<span class="num">${val == null ? "—" : n2(val, 0)}</span></div><div class="wpb"><i style="width:${val ?? 0}%;background:${col}"></i></div><div class="wpt">${note}</div></div>`;
-    const tcv = at("tc", i), lqv = at("lq", i);
+    const tcv = at("tc", i), lqv = at("lq", i), E = M.EXPLAIN;
     const autoPts = [
       { h: `풍향계 ${v ?? "—"}점, '${z.name}'`, t: `${z.act} 구간입니다. 높을수록(순풍) 이후 지수가 좋았고, 낮을수록(역풍) 조심할 때였습니다.` },
       { h: `심리 ${tcv ?? "—"} ${labelTC(tcv) || ""}`, t: (cm.tc_summary || (typeof cm.tc === "string" ? cm.tc : "")) || "트렌드캐치 탭에서 지표별로 볼 수 있습니다." },
       { h: `유동성 ${lqv ?? "—"} ${labelLQ(lqv) || ""}`, t: (cm.lq_summary || (typeof cm.lq === "string" ? cm.lq : "")) || "유동성 탭에서 지표별로 볼 수 있습니다." },
     ];
+    const W = S.wmode || "same";
     let html = `<div class="grid g2 wtop">
-      <div class="card wcard"><h3>증시 풍향계 · ${short(d)}</h3><div class="cap">0 = 강한 역풍(매우 조심) · 100 = 강한 순풍(적극) · <button class="lnk" data-info="wind:_">어떻게 계산하나요?</button></div>
+      <div class="card wcard"><h3>증시 풍향계 · ${short(d)}</h3><div class="cap">0 = 강한 역풍(매우 조심) · 100 = 강한 순풍(적극) · <button class="lnk" data-jump="wmean">역풍·순풍이 뭔가요?</button> · <button class="lnk" data-info="wind:_">계산 방법</button></div>
         ${S.wind ? gauge(v) : ""}
         <div class="wnow"><span class="big num" style="color:${z.color}">${v ?? "—"}</span><div><span class="pill" style="background:${z.color}">${z.name}</span><div class="wact">지금은 <b>${z.act}</b></div>
           <div class="note" style="margin-top:2px">${v0 != null && v != null ? `1주 전 ${v0} → ${v > v0 ? "+" : v < v0 ? "−" : "±"}${n2(Math.abs(v - v0), 1)}` : ""}</div></div></div>
+        ${S.wind ? verdictBlock(z, wc) : ""}
         <div class="whead">${esc(wc.headline || autoWindHead(v, v0, i))}</div>
         <div class="wparts">${part("심리 바람 60%", sent, "#f59e6b", "트렌드캐치를 거꾸로: 공포일수록 ↑")}${part("유동성 바람 40%", liq, "#0fb9a5", "돈이 넉넉할수록 ↑")}</div></div>
       ${quadrant(i, cm)}</div>
       ${windCards(b, i)}
-      ${pointsBlock("핵심 코멘트", asPoints(wc.points) .length ? asPoints(wc.points) : autoPts, "wind")}
-      <div class="card sec"><h3>풍향계와 지수 흐름</h3><div class="cap">금색 선 = 풍향계(왼쪽, 0~100, 배경색 = 구간) · 흰색·파란 선 = S&P500·나스닥100(오른쪽, 기간 첫날 = 0%)</div>
-        <div class="ctl"><div class="seg" id="segW">${[["6m", "6개월"], ["1y", "1년"], ["all", "전체"]].map(([k, t]) => `<button data-v="${k}" class="${S.wrange === k ? "on" : ""}">${t}</button>`).join("")}</div></div>
-        <div class="chartbox lg"><canvas id="wline"></canvas></div></div>
+      ${pointsBlock("핵심 코멘트", asPoints(wc.points).length ? asPoints(wc.points) : autoPts, "wind")}
+      ${scenarioBlock(wc.scenarios)}
+      ${S.wind ? `<div id="wmean">${windMeaning(z.name)}</div>` : ""}
+      <div class="card sec"><h3>풍향계와 지수, 방향이 맞았나</h3>
+        <div class="ctl"><div class="seg" id="segWM">${[["same", "같은 날 (눈금 맞춤)"], ["20", "1개월 뒤 수익률"], ["60", "3개월 뒤 수익률"]].map(([k, t]) => `<button data-v="${k}" class="${W === k ? "on" : ""}">${t}</button>`).join("")}</div>
+          <div class="seg" id="segW">${[["6m", "6개월"], ["1y", "1년"], ["all", "전체"]].map(([k, t]) => `<button data-v="${k}" class="${S.wrange === k ? "on" : ""}">${t}</button>`).join("")}</div></div>
+        <div class="cap" id="wlinecap"></div>
+        <div class="chartbox lg"><canvas id="wline"></canvas></div><div class="note" id="wlinen"></div></div>
       <div class="grid g2e sec">
-        <div class="card"><h3>풍향계가 지수를 앞서는가?</h3><div class="cap">풍향계 점수와 'N 뒤' 지수 수익률의 순위상관 · +이면 점수가 높을 때 이후 지수도 좋았음(앞서감)</div>
-          <div class="chartbox"><canvas id="wlead"></canvas></div><div class="note" id="wleadn"></div></div>
-        <div class="card"><h3>구간별로 이후 어땠나 (S&P500)</h3><div class="cap">${S.wind ? `${S.wind.start} 이후 매 거래일 기준` : ""} · 굵은 줄 = 지금 구간</div><div id="wzt"></div>
-          <div class="ctitle" style="margin-top:12px">검증이 쌓이는 모습 <small>(그 시점까지 결과가 확정된 날만으로 계산한 3개월 뒤 순위상관)</small></div>
-          <div class="chartbox sm"><canvas id="wtrack"></canvas></div></div></div>
+        <div class="card"><h3>${esc(E.lead_title)}</h3><div class="cap">${esc(E.lead_cap)}</div>
+          <div class="chartbox"><canvas id="wlead"></canvas></div><div class="leadv" id="wleadn"></div></div>
+        <div class="card"><h3>${esc(E.track_title)}</h3><div class="cap">${esc(E.track_cap)}</div>
+          <div class="chartbox"><canvas id="wtrack"></canvas></div></div></div>
       <div class="note">풍향계는 2023-09부터 계산됩니다(트렌드캐치 9개 지표 중 5개 이상이 모이는 시점). 기간이 3년 남짓이라 매일 쌓이면서 검증이 계속됩니다. 과거 관계가 앞으로도 같다는 보장은 없습니다.</div>`;
     $("#view").innerHTML = html;
     bindInfo(); bindGo(); bindQuad(i, cm);
+    $("#view").querySelectorAll("[data-jump]").forEach((x) => x.onclick = (e) => { e.stopPropagation(); const t = document.getElementById(x.dataset.jump); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); });
     if (!S.wind) return;
     drawWindLine(i);
-    $("#segW").querySelectorAll("button").forEach((x) => x.onclick = () => { S.wrange = x.dataset.v; $("#segW").querySelectorAll("button").forEach((y) => y.classList.toggle("on", y === x)); drawWindLine(i); });
-    drawWindLead(); drawWindZones(z.name); drawWindTrack();
+    const seg = (id, key) => $(id).querySelectorAll("button").forEach((x) => x.onclick = () => { S[key] = x.dataset.v; $(id).querySelectorAll("button").forEach((y) => y.classList.toggle("on", y === x)); drawWindLine(i); });
+    seg("#segW", "wrange"); seg("#segWM", "wmode");
+    drawWindLead(z, v); drawWindTrack();
   }
   function drawWindLine(i) {
     killChart("wline"); const el = $("#wline"); if (!el) return;
+    const E = M.EXPLAIN, mode = S.wmode || "same";
     const n = { "6m": 126, "1y": 252, "all": 99999 }[S.wrange];
     const st = Math.max(idxOf(S.wind.start), i - n + 1), ds = D().slice(st, i + 1);
-    const norm = (k) => { const a = ds.map((_, m) => at(k, st + m)); const b0 = a.find((x) => x != null); return a.map((x) => x == null || b0 == null ? null : (x / b0 - 1) * 100); };
+    const wv = ds.map((_, m) => windAt(st + m));
     const zs = S.wind.zones, bounds = zs.map((z) => z.from).concat([100]);
     const zp = { id: "wz", beforeDraw(ch) { const { ctx, chartArea: a, scales: { y } } = ch; if (!a) return; ctx.save();
       zs.forEach((z, k) => { const t = y.getPixelForValue(bounds[k + 1]), bt = y.getPixelForValue(bounds[k]); ctx.fillStyle = z.color + "1f"; ctx.fillRect(a.left, t, a.right - a.left, bt - t); });
       ctx.restore(); } };
-    charts.wline = new Chart(el, { type: "line", plugins: [zp],
-      data: { labels: ds, datasets: [
-        { label: "풍향계", data: ds.map((_, m) => windAt(st + m)), borderColor: "#f5cf6a", borderWidth: 2.4, pointRadius: 0, yAxisID: "y", spanGaps: true },
-        { label: "S&P500", data: norm("spx"), borderColor: "#e8eef8", borderWidth: 1.4, pointRadius: 0, yAxisID: "y2", spanGaps: true },
-        { label: "나스닥100", data: norm("ndx"), borderColor: "#7cb7ff", borderWidth: 1.4, pointRadius: 0, yAxisID: "y2", spanGaps: true }] },
+    const wds = { label: "풍향계", data: wv, borderColor: "#f5cf6a", borderWidth: 2.4, pointRadius: 0, yAxisID: "y", spanGaps: true };
+    const yW = { min: 0, max: 100, ticks: { color: "#98acd0", stepSize: 25 }, grid: { color: "#3a589066" }, title: { display: true, text: mode === "same" ? "0~100 (같은 눈금)" : "풍향계", color: "#98acd0" } };
+    if (mode === "same") {
+      const sc = (k) => { const a = ds.map((_, m) => at(k, st + m)), lg = a.map((x) => x == null ? null : Math.log(x)), vv = lg.filter((x) => x != null);
+        const lo = Math.min(...vv), hi = Math.max(...vv); return { raw: a, v: lg.map((x) => x == null ? null : hi > lo ? (x - lo) / (hi - lo) * 100 : 50) }; };
+      const sp = sc("spx"), nq = sc("ndx");
+      charts.wline = new Chart(el, { type: "line", plugins: [zp],
+        data: { labels: ds, datasets: [wds,
+          { label: "S&P500 (기간 최저 0 · 최고 100)", data: sp.v, raw: sp.raw, borderColor: "#e8eef8", borderWidth: 1.4, pointRadius: 0, yAxisID: "y", spanGaps: true },
+          { label: "나스닥100 (기간 최저 0 · 최고 100)", data: nq.v, raw: nq.raw, borderColor: "#7cb7ff", borderWidth: 1.4, pointRadius: 0, yAxisID: "y", spanGaps: true }] },
+        options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+          plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } }, tooltip: { callbacks: { label: (c) => c.datasetIndex === 0 ? ` 풍향계 ${c.raw} (${zoneOf(c.raw).name})` : ` ${c.dataset.label.split(" ")[0]} ${n2(c.dataset.raw[c.dataIndex], 2)} (눈금 ${n2(c.raw, 0)})` } } },
+          scales: { x: axisX(7), y: yW } } });
+      $("#wlinecap").textContent = "금색 = 풍향계 · 흰색·파랑 = S&P500·나스닥100을 같은 0~100 눈금으로 바꾼 것 (배경색 = 풍향계 구간)";
+      $("#wlinen").textContent = E.same_scale;
+      return;
+    }
+    const h = +mode, hn = h === 20 ? "1개월" : "3개월", px = C("spx"), last = D().length - 1;
+    const fwd = ds.map((_, m) => { const k = st + m, a = px[k], b = k + h <= last ? px[k + h] : null; return a != null && b != null ? +((b / a - 1) * 100).toFixed(2) : null; });
+    const R = Math.max(5, Math.ceil(Math.max(...fwd.filter((x) => x != null).map(Math.abs), 0) / 5) * 5);
+    const mid = hlinePlugin([[50, "", "#cbd5e1"]]);
+    charts.wline = new Chart(el, { type: "line", plugins: [zp, mid],
+      data: { labels: ds, datasets: [wds,
+        { label: `S&P500 ${hn} 뒤 수익률`, data: fwd, borderColor: "#e8eef8", borderWidth: 1.6, pointRadius: 0, yAxisID: "y2", spanGaps: false }] },
       options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-        plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } }, tooltip: { callbacks: { label: (c) => c.datasetIndex === 0 ? ` 풍향계 ${c.raw} (${zoneOf(c.raw).name})` : ` ${c.dataset.label} ${sgn(c.raw, 1, "%")}` } } },
-        scales: { x: axisX(7), y: { min: 0, max: 100, ticks: { color: "#98acd0", stepSize: 25 }, grid: { color: "#3a589066" }, title: { display: true, text: "풍향계", color: "#98acd0" } },
-          y2: { position: "right", ticks: { color: "#98acd0", callback: (v) => v + "%" }, grid: { display: false } } } } });
+        plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } }, tooltip: { callbacks: { label: (c) => c.datasetIndex === 0 ? ` 풍향계 ${c.raw} (${zoneOf(c.raw).name})` : ` 이날 샀다면 ${hn} 뒤 ${sgn(c.raw, 1, "%")}` } } },
+        scales: { x: axisX(7), y: yW, y2: { position: "right", min: -R, max: R, ticks: { color: "#98acd0", callback: (x) => x + "%" }, grid: { display: false }, title: { display: true, text: `${hn} 뒤 수익률`, color: "#98acd0" } } } } });
+    const ic = rankCorr(wv, fwd);
+    $("#wlinecap").textContent = `금색 = 풍향계(왼쪽) · 흰색 = 그날 S&P500을 샀다면 ${hn} 뒤 수익률(오른쪽) · 가운데 점선 = 풍향계 50 / 수익률 0%`;
+    $("#wlinen").textContent = E.forward.split("{h}").join(hn) + (ic == null ? "" : ` 이 화면 기간의 같은 방향 정도: ${ic > 0 ? "+" : ""}${ic.toFixed(2)} (${icWords(ic)}${ic < 0 ? ", 반대 방향" : ""}).`);
   }
-  function drawWindLead() {
+  function drawWindLead(z, v) {
     killChart("wlead"); const el = $("#wlead"); if (!el) return;
     const L = S.wind.lead, hs = ["5", "10", "20", "40", "60"];
     charts.wlead = new Chart(el, { type: "bar",
       data: { labels: hs.map((h) => S.wind.hname[h] + " 뒤"), datasets: [
         { label: "S&P500", data: hs.map((h) => L.spx.fwd[h]), backgroundColor: "#e8eef8", borderRadius: 4 },
         { label: "나스닥100", data: hs.map((h) => L.ndx.fwd[h]), backgroundColor: "#7cb7ff", borderRadius: 4 }] },
-      options: { maintainAspectRatio: false, plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } }, tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} ${c.raw > 0 ? "+" : ""}${c.raw}` } } },
-        scales: { x: { ticks: { color: "#dfe7f7" }, grid: { display: false } }, y: { min: -0.6, max: 0.6, ticks: { color: "#98acd0", stepSize: 0.2 }, grid: { color: "#3a589066" } } } } });
-    const f = (x) => (x > 0 ? "+" : "") + x;
-    $("#wleadn").innerHTML = `3개월 뒤 기준 S&P500 ${f(L.spx.fwd["60"])}, 나스닥100 ${f(L.ndx.fwd["60"])}로 기간이 길수록 앞서가는 힘이 컸습니다. 반대로 지난 3개월 수익률과는 ${f(L.spx.past["60"])}(S&P500): 많이 빠진 뒤에 풍향계가 올라가는 역발상 구조입니다. 표본 ${L.spx.n["60"]}거래일.`;
-  }
-  function drawWindZones(cur) {
-    const el = $("#wzt"); if (!el) return;
-    const st = S.wind.stats.spx, zs = S.wind.zones.slice().reverse();
-    const cell = (r) => r ? `<td class="r num ${cls(r.mean)}">${sgn(r.mean, 1, "%")}</td><td class="r num">${n2(r.win, 0)}%</td>` : `<td class="r muted">—</td><td class="r muted">—</td>`;
-    el.innerHTML = `<table class="st zt"><tr><th>구간</th><th class="r">1개월 뒤 평균</th><th class="r">상승 확률</th><th class="r">3개월 뒤 평균</th><th class="r">상승 확률</th><th class="r hs">일수</th></tr>
-      ${zs.map((z) => `<tr class="${z.name === cur ? "cur" : ""}"><td><span class="sw" style="background:${z.color}"></span>${z.name} <span class="muted">${z.act}</span></td>${cell(st["20"][z.name])}${cell(st["60"][z.name])}<td class="r muted hs">${st["60"][z.name] ? st["60"][z.name].n : 0}</td></tr>`).join("")}
-      <tr class="tot"><td>전체 평균</td>${cell(st["20"]["전체"])}${cell(st["60"]["전체"])}<td class="r muted hs">${st["60"]["전체"].n}</td></tr></table>`;
+      options: { maintainAspectRatio: false, plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } }, tooltip: { callbacks: { label: (c) => ` ${c.dataset.label} ${c.raw > 0 ? "+" : ""}${c.raw} (${icWords(c.raw)})` } } },
+        scales: { x: { ticks: { color: "#dfe7f7" }, grid: { display: false } }, y: { min: -0.2, max: 0.6, ticks: { color: "#98acd0", stepSize: 0.2, callback: (x) => (x > 0 ? "+" : "") + x.toFixed(1) }, grid: { color: "#3a589066" }, title: { display: true, text: "맞힌 정도", color: "#98acd0" } } } } });
+    const f = (x) => (x > 0 ? "+" : "") + x.toFixed(2);
+    const st60 = (S.wind.stats.spx["60"] || {})[z.name];
+    $("#wleadn").innerHTML = `<div><b>한 줄 요약</b>풍향계는 바로 다음 주보다 <b>1~3개월 뒤</b>를 더 잘 맞혔습니다. S&P500 기준 1주 뒤 ${f(L.spx.fwd["5"])}(${icWords(L.spx.fwd["5"])}) → 3개월 뒤 ${f(L.spx.fwd["60"])}(${icWords(L.spx.fwd["60"])}), 나스닥100 3개월 뒤 ${f(L.ndx.fwd["60"])}(${icWords(L.ndx.fwd["60"])}).</div>
+      ${st60 && v != null ? `<div><b>지금에 대입하면</b>풍향계 ${v}(${z.name})와 같은 구간이었던 ${st60.n}일 동안, 3개월 뒤 S&P500은 평균 ${sgn(st60.mean, 1, "%")}였고 ${n2(st60.win, 0)}%의 경우 올랐습니다.</div>` : ""}
+      <div><b>왜 같은 날엔 반대로 보이나</b>주가가 많이 빠진 뒤에 풍향계가 올라가는 구조라, 지난 3개월 수익률과는 ${f(L.spx.past["60"])}로 반대 방향입니다. 그래서 같은 날 그래프에서는 지수와 엇갈려 보입니다. 표본 ${L.spx.n["60"]}거래일.</div>`;
   }
   function drawWindTrack() {
     killChart("wtrack"); const el = $("#wtrack"); if (!el) return;
     const t = S.wind.track;
-    charts.wtrack = new Chart(el, { type: "line", plugins: [hlinePlugin([[0, "", "#8ea3cc"]])],
+    charts.wtrack = new Chart(el, { type: "line", plugins: [hlinePlugin([[0, "0 = 못 맞힘", "#8ea3cc"]])],
       data: { labels: t.spx.dates, datasets: [
         { label: "S&P500", data: t.spx["60"], borderColor: "#e8eef8", borderWidth: 1.6, pointRadius: 0, spanGaps: true },
         { label: "나스닥100", data: t.ndx["60"], borderColor: "#7cb7ff", borderWidth: 1.6, pointRadius: 0, spanGaps: true }] },
-      options: { maintainAspectRatio: false, plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } } },
+      options: { maintainAspectRatio: false, plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } }, tooltip: { callbacks: { label: (c) => c.raw == null ? null : ` ${c.dataset.label} ${c.raw > 0 ? "+" : ""}${c.raw} (${icWords(c.raw)})` } } },
         scales: { x: axisX(5), y: { min: -0.6, max: 0.8, ticks: { color: "#98acd0", stepSize: 0.2 }, grid: { color: "#3a589066" } } } } });
   }
 
@@ -453,15 +515,15 @@
   }
   async function drawBreadth(i) {
     killChart("bline"); const el = $("#bline"); if (!el) return;
-    if (!S.hist) { const [bh, a2] = await Promise.all([getJSON("data/hist/breadth.json").catch(() => ({})), getJSON("data/hist/sp500_a200.json").catch(() => ({}))]); S.hist = { bh, a2 }; }
+    if (!S.hist) { const [bh, a2, a5] = await Promise.all([getJSON("data/hist/breadth.json").catch(() => ({})), getJSON("data/hist/sp500_a200.json").catch(() => ({})), getJSON("data/hist/sp500_a50.json").catch(() => ({}))]); S.hist = { bh, a2, a5 }; }
     if (!$("#bline")) return;
     const end = D()[i], days = { "6m": 183, "1y": 366, "3y": 1096 }[S.brange];
     const sd = new Date(new Date(end + "T00:00:00").getTime() - days * 864e5).toISOString().slice(0, 10);
-    const set = new Set(Object.keys(S.hist.a2).concat(Object.keys(S.hist.bh)).filter((d) => d >= sd && d <= end));
+    const set = new Set(Object.keys(S.hist.a2).concat(Object.keys(S.hist.a5), Object.keys(S.hist.bh)).filter((d) => d >= sd && d <= end));
     const ds = [...set].sort(), bh = S.hist.bh;
     const few = (arr) => arr.filter((x) => x != null).length < 15;
     const mkDs = (label, data, col, dash) => ({ label, data, borderColor: col, backgroundColor: col, borderWidth: 2, borderDash: dash || [], pointRadius: few(data) ? 4 : 0, spanGaps: true });
-    const sp200 = ds.map((d) => S.hist.a2[d] ?? null), sp50 = ds.map((d) => bh[d]?.sp500_above50 ?? null), al200 = ds.map((d) => bh[d]?.above200 ?? null), al50 = ds.map((d) => bh[d]?.above50 ?? null);
+    const sp200 = ds.map((d) => S.hist.a2[d] ?? null), sp50 = ds.map((d) => S.hist.a5[d] ?? bh[d]?.sp500_above50 ?? null), al200 = ds.map((d) => bh[d]?.above200 ?? null), al50 = ds.map((d) => bh[d]?.above50 ?? null);
     charts.bline = new Chart(el, { type: "line", plugins: [hlinePlugin([[80, "80% 과열권", "#f59e6b"], [50, "50%", "#8ea3cc"], [20, "20% 바닥권", "#5fd3b0"]])],
       data: { labels: ds, datasets: [mkDs("S&P500 200일선 위", sp200, "#f5cf6a"), mkDs("S&P500 50일선 위", sp50, "#0fb9a5"), mkDs("미국 전체 200일선 위", al200, "#e8eef8", [5, 4]), mkDs("미국 전체 50일선 위", al50, "#c084fc", [5, 4])] },
       options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
@@ -511,7 +573,7 @@
       <div class="card click" data-info="board:sectors"><h3>섹터 강도</h3><div class="cap">11개 섹터의 시가총액 가중 등락률 · 괄호 = 오른 종목 비율</div>
         <div class="chartbox" style="height:${Math.max(240, sp.length * 28)}px"><canvas id="secbar"></canvas></div></div></div>
       <div class="card sec"><div class="mh"><h3>200일선 · 50일선 위 종목 비율</h3><button class="lnk" data-info="board:bchart">읽는 법</button></div>
-        <div class="cap">주가가 이동평균선 위에 있는 종목의 비율 · S&P500 200일선은 2017년부터, 나머지는 2026-11-13부터 매일 쌓임</div>
+        <div class="cap">주가가 이동평균선 위에 있는 종목의 비율 · <b>S&P500 200일선·50일선</b>은 2017년부터(구성종목 일봉으로 직접 계산), <b>미국 전체</b>는 2026-11-13부터 매일 쌓임 · 참고: barchart의 미국 전체 50일선 비율(<a href="https://www.barchart.com/stocks/quotes/$MMFI/technical-chart" target="_blank" rel="noopener">$MMFI</a>)·200일선 비율(<a href="https://www.barchart.com/stocks/quotes/$MMTH/technical-chart" target="_blank" rel="noopener">$MMTH</a>)은 대상 종목 범위가 달라 값이 다릅니다</div>
         <div class="ctl"><div class="seg" id="segB">${[["6m", "6개월"], ["1y", "1년"], ["3y", "3년"]].map(([k, t]) => `<button data-v="${k}" class="${S.brange === k ? "on" : ""}">${t}</button>`).join("")}</div></div>
         <div class="chartbox lg"><canvas id="bline"></canvas></div></div>`;
     html += industryBlock(b);
@@ -621,17 +683,21 @@
     return `<div class="card"><h3 class="${kind}h">지표별 점수 히트맵</h3><div class="cap">주 마지막 거래일 기준 최근 12주 · 칸을 누르면 그 날짜로 이동 · ${kind === "tc" ? "파랑 = 공포, 빨강 = 광기" : "갈색 = 경색, 청록 = 풍부"}</div>
       <div class="hmwrap"><div class="hm" style="grid-template-columns:96px repeat(${cols.length},minmax(30px,1fr))">${head}${list.map((m) => row(m.short || m.name, m.key)).join("")}${row("종합", null, true)}</div></div></div>`;
   }
-  const icWord = (ic) => ic == null ? "자료 없음" : Math.abs(ic) < 0.1 ? "관계 거의 없음" : (Math.abs(ic) < 0.2 ? "약한 " : "뚜렷한 ") + (ic < 0 ? "역방향" : "같은 방향");
+  const H_NAME = { "1": "1주 뒤", "4": "4주(약 1개월) 뒤", "12": "12주(약 3개월) 뒤" };
+  const icWord = (ic) => ic == null ? "자료 없음" : Math.abs(ic) < 0.1 ? "관계 거의 없음" : (ic < 0 ? "점수 높을수록 그 뒤 수익 낮음" : "점수 높을수록 그 뒤 수익 높음") + ` (${icWords(ic)})`;
   function corrBlock(kind) {
-    return `<div class="card sec"><h3 class="${kind}h">지수와의 상관</h3>
-      <div class="cap">'N주 뒤' = 점수를 기록한 주의 마지막 거래일 종가에서 N주 뒤 종가까지의 지수 수익률입니다. 순위상관은 −1~+1이며, <b>−</b>는 점수가 높을수록 이후 수익률이 낮았다(역발상), <b>+</b>는 높을수록 좋았다는 뜻입니다.</div>
-      <div class="ctl"><div class="seg" id="segH">${["1", "4", "12"].map((h) => `<button data-v="${h}" class="${S.h === h ? "on" : ""}">${h}주 뒤</button>`).join("")}</div>
+    const E = M.EXPLAIN, nm = kind === "tc" ? "트렌드캐치" : "유동성";
+    return `<div class="card sec"><h3 class="${kind}h">${esc(E.corr_title)}</h3>
+      <div class="cap">${esc(E.corr_intro.split("{name}").join(nm))}</div>
+      <div class="ctl"><div class="seg" id="segH">${["1", "4", "12"].map((h) => `<button data-v="${h}" class="${S.h === h ? "on" : ""}">${H_NAME[h]}</button>`).join("")}</div>
         <div class="seg" id="segIdx">${Object.entries(IDX_NAME).map(([k, v]) => `<button data-v="${k}" class="${S.idx === k ? "on" : ""}">${v}</button>`).join("")}</div>
         <div class="seg" id="segR">${[["1y", "1년"], ["3y", "3년"]].map(([k, v]) => `<button data-v="${k}" class="${S.range === k ? "on" : ""}">${v}</button>`).join("")}</div></div>
-      <div class="cstat" id="cstat"></div>
+      <div class="cnow ${kind}" id="cnow"></div>
       <div class="grid g2e"><div><div class="ctitle" id="cbt"></div><div class="chartbox"><canvas id="cbar"></canvas></div><div class="note" id="cnote"></div></div>
-        <div><div class="ctitle">점수(왼쪽 축)와 <span id="clname"></span>(오른쪽 축) 흐름</div><div class="chartbox"><canvas id="cline"></canvas></div>
-          <div class="ctitle" style="margin-top:10px">최근 26주 동안의 상관 <small>(점수 vs 4주 뒤 수익률 · 0 아래 = 역발상이 통하던 시기)</small></div><div class="chartbox sm"><canvas id="croll"></canvas></div></div></div>
+        <div><div class="ctitle">세 지수별 '맞힌 정도' <small>(누르면 그 지수로 바뀜)</small></div><div class="cstat" id="cstat"></div>
+          <div class="note">${esc(E.corr_sign)}</div>
+          <div class="ctitle" style="margin-top:10px">점수(왼쪽 축)와 <span id="clname"></span>(오른쪽 축) 흐름</div><div class="chartbox sm"><canvas id="cline"></canvas></div>
+          <div class="ctitle" style="margin-top:10px">시기마다 관계가 같았나 <small>(최근 26주씩 끊어서 · 점수 vs 4주 뒤 수익률)</small></div><div class="chartbox sm"><canvas id="croll"></canvas></div><div class="note">${esc(E.corr_roll)}</div></div></div>
       <div class="note">${kind === "tc" ? "트렌드캐치 과거값은 웹에서 확인하는 4개 지표(F&G·AAII·풋콜·신용융자)의 과거 기록이 부족해 대부분 5~6개 지표로 계산됐습니다. 매일 쌓이면서 정확해집니다." : "유동성은 신용융자 과거 기록이 부족한 기간은 나머지 지표 가중치로 다시 나눠 계산했습니다."} 코스피는 미국 t일 다음 한국 거래일 종가로 맞췄습니다. 과거 관계가 앞으로도 같다는 보장은 없습니다.</div></div>`;
   }
   function drawMini(kind, i) {
@@ -644,28 +710,35 @@
           y: { min: 1, max: 5, ticks: { color: "#98acd0", stepSize: 1 }, grid: { color: "#3a5890" } } } } });
   }
   function drawCorr(kind, i) {
-    const Z = kind === "tc" ? TC_Z : LQ_Z, CC = kind === "tc" ? TCC : LQC;
+    const Z = kind === "tc" ? TC_Z : LQ_Z, CC = kind === "tc" ? TCC : LQC, nm = kind === "tc" ? "트렌드캐치" : "유동성";
     const all = S.corr && S.corr[kind], cr = all && all[S.idx];
     killChart("cbar"); killChart("cline"); killChart("croll");
     if (!cr) return;
-    $("#cstat").innerHTML = Object.entries(IDX_NAME).map(([k, nm]) => { const ic = all[k] && all[k].ic[S.h];
-      return `<button class="cs ${k === S.idx ? "on" : ""}" data-v="${k}"><span>${nm} · ${S.h}주 뒤</span><b class="num ${ic == null ? "" : ic < 0 ? "down" : "up"}">${ic == null ? "—" : (ic > 0 ? "+" : "") + ic.toFixed(2)}</b><em>${icWord(ic)}</em></button>`; }).join("");
+    const v = at(kind, i), lab = kind === "tc" ? labelTC(v) : labelLQ(v), bk = cr.buckets[S.h] || {}, hn = H_NAME[S.h], ix = IDX_NAME[S.idx];
+    let tn = 0, tm = 0; Object.values(bk).forEach((r) => { tn += r.n; tm += r.mean * r.n; });
+    const avg = tn ? tm / tn : null, cb = bk[lab];
+    $("#cnow").innerHTML = v == null ? "이 날짜의 점수가 없습니다." : cb
+      ? `<b>지금 ${nm} ${v} = '${lab}' 구간</b><div>과거 ${nm}가 '${lab}'였던 <b>${cb.n}주</b> 동안, 그때 ${ix}를 샀다면 <b>${hn}</b> 평균 <b class="num ${cls(cb.mean)}">${sgn(cb.mean, 1, "%")}</b>였고, <b>${n2(cb.win, 0)}%</b>의 경우 올랐습니다.
+        ${avg != null ? `모든 주 평균(${sgn(avg, 1, "%")})보다 ${cb.mean > avg + 0.5 ? "<b class='up'>좋았습니다</b>" : cb.mean < avg - 0.5 ? "<b class='down'>나빴습니다</b>" : "비슷했습니다"}.` : ""}${cb.n < 8 ? " <span class='muted'>(표본이 적어 참고만 하세요)</span>" : ""}</div>`
+      : `<b>지금 ${nm} ${v} = '${lab}' 구간</b><div>과거에 '${lab}' 구간이었던 주가 없어 비교할 수 없습니다. 아래 막대에서 다른 구간을 참고하세요.</div>`;
+    $("#cstat").innerHTML = Object.entries(IDX_NAME).map(([k, inm]) => { const ic = all[k] && all[k].ic[S.h];
+      return `<button class="cs ${k === S.idx ? "on" : ""}" data-v="${k}"><span>${inm} · ${hn}</span><b class="num ${ic == null ? "" : ic < 0 ? "down" : "up"}">${ic == null ? "—" : (ic > 0 ? "+" : "") + ic.toFixed(2)}</b><em>${icWord(ic)}</em></button>`; }).join("");
     $("#cstat").querySelectorAll(".cs").forEach((x) => x.onclick = () => { S.idx = x.dataset.v; $("#segIdx").querySelectorAll("button").forEach((y) => y.classList.toggle("on", y.dataset.v === S.idx)); drawCorr(kind, i); });
-    $("#cbt").textContent = `점수 구간별 ${IDX_NAME[S.idx]} ${S.h}주 뒤 평균 수익률`;
-    $("#clname").textContent = IDX_NAME[S.idx];
-    const bk = cr.buckets[S.h] || {};
+    $("#cbt").textContent = `${nm} 구간별로 샀다면: ${ix} ${hn} 평균 수익률`;
+    $("#clname").textContent = ix;
     charts.cbar = new Chart($("#cbar"), { type: "bar",
-      data: { labels: Z.map((z) => [z, bk[z] ? `${bk[z].n}주` : "표본 없음"]), datasets: [{ data: Z.map((z) => bk[z]?.mean ?? null), backgroundColor: CC, borderRadius: 4 }] },
+      data: { labels: Z.map((z) => [z === lab ? `▶ ${z} (지금)` : z, bk[z] ? `${bk[z].n}주` : "표본 없음"]), datasets: [{ data: Z.map((z) => bk[z]?.mean ?? null), backgroundColor: CC,
+        borderColor: Z.map((z) => z === lab ? "#f5cf6a" : "transparent"), borderWidth: 3, borderRadius: 4 }] },
       options: { maintainAspectRatio: false, plugins: { legend: { display: false },
-        tooltip: { callbacks: { label: (c) => { const b = bk[Z[c.dataIndex]]; return b ? ` 평균 ${b.mean}% · 오른 비율 ${b.win}% · ${b.n}주` : " 표본 없음"; } } } },
-        scales: { x: { ticks: { color: "#dfe7f7", font: { size: 13 } }, grid: { display: false } }, y: { ticks: { color: "#98acd0", callback: (v) => v + "%" }, grid: { color: "#3a5890" } } } } });
+        tooltip: { callbacks: { label: (c) => { const b = bk[Z[c.dataIndex]]; return b ? ` 평균 ${b.mean}% · 오른 경우 ${b.win}% · ${b.n}주` : " 표본 없음"; } } } },
+        scales: { x: { ticks: { color: "#dfe7f7", font: { size: 13 } }, grid: { display: false } }, y: { ticks: { color: "#98acd0", callback: (x) => x + "%" }, grid: { color: "#3a5890" } } } } });
     const ic = cr.ic[S.h];
-    $("#cnote").innerHTML = `${IDX_NAME[S.idx]} ${S.h}주 뒤 순위상관 <b>${ic == null ? "—" : (ic > 0 ? "+" : "") + ic}</b> → ${ic == null ? "" : ic < -0.1 ? "점수가 높을수록 이후 수익률이 낮았습니다(역발상이 통함)." : ic > 0.1 ? "점수가 높을수록 이후 수익률도 높았습니다." : "뚜렷한 관계가 없었습니다."} 막대에 손가락을 대면 오른 비율과 표본 수가 보입니다.`;
+    $("#cnote").innerHTML = `막대 = 그 구간일 때 샀다면 ${hn} 평균 수익률 · 금색 테두리 = 지금 구간. ${ix} ${hn} 기준 맞힌 정도 <b>${ic == null ? "—" : (ic > 0 ? "+" : "") + ic.toFixed(2)}</b> → ${ic == null ? "" : ic < -0.1 ? "점수가 높을수록(" + (kind === "tc" ? "들뜰수록" : "돈이 넉넉할수록") + ") 그 뒤 수익이 낮은 편이었습니다." : ic > 0.1 ? "점수가 높을수록 그 뒤 수익도 높은 편이었습니다." : "점수와 그 뒤 수익 사이에 뚜렷한 관계가 없었습니다."} 막대를 누르면 오른 비율과 표본 수가 보입니다.`;
     const ds = D(), we = weekEnds(i, S.range === "1y" ? 53 : 160);
     charts.cline = new Chart($("#cline"), { type: "line", plugins: [bandPlugin(CC)],
       data: { labels: we.map((k) => ds[k]), datasets: [
-        { label: kind === "tc" ? "트렌드캐치" : "유동성", data: we.map((k) => at(kind, k)), borderColor: kind === "tc" ? "#f59e6b" : "#0fb9a5", borderWidth: 2.2, pointRadius: 0, stepped: true, yAxisID: "y", spanGaps: true },
-        { label: IDX_NAME[S.idx], data: we.map((k) => at(S.idx, k)), borderColor: "#e8eef8", borderWidth: 1.5, pointRadius: 0, yAxisID: "y2", spanGaps: true }] },
+        { label: nm, data: we.map((k) => at(kind, k)), borderColor: kind === "tc" ? "#f59e6b" : "#0fb9a5", borderWidth: 2.2, pointRadius: 0, stepped: true, yAxisID: "y", spanGaps: true },
+        { label: ix, data: we.map((k) => at(S.idx, k)), borderColor: "#e8eef8", borderWidth: 1.5, pointRadius: 0, yAxisID: "y2", spanGaps: true }] },
       options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
         plugins: { legend: { labels: { color: "#dfe7f7", boxWidth: 12 } } },
         scales: { x: axisX(6), y: { min: 1, max: 5, ticks: { color: "#98acd0", stepSize: 1 }, grid: { color: "#3a5890" }, title: { display: true, text: "점수", color: "#98acd0" } },

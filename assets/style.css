@@ -518,3 +518,53 @@ table.zt tr.tot td{color:var(--sub)}
   .mc .tt{font-size:15px}.mc .nm{font-size:16.5px}.mc .tg{font-size:11px}
   .mc .bk p{font-size:12.5px;line-height:1.5}.mc .tt2{font-size:13.5px}
 }
+
+/* v5: 총평·행동 가이드 */
+.verdict{margin-top:12px;padding:12px 14px;border-radius:12px;background:#1d3463;border:2px solid var(--gold2)}
+.verdict .vh{font-size:13px;font-weight:800;letter-spacing:.5px;margin-bottom:2px}
+.verdict .vt{font-size:17.5px;font-weight:700;line-height:1.5;word-break:keep-all}
+.verdict .vg{display:grid;gap:6px;margin-top:10px}
+.verdict .vr{display:grid;grid-template-columns:104px 1fr;gap:10px;align-items:baseline;padding:7px 10px;border-radius:9px;background:var(--card2);border:1px solid var(--line)}
+.verdict .vr span{font-size:13px;color:var(--muted);font-weight:700}
+.verdict .vr b{font-size:15px;font-weight:600;line-height:1.5;word-break:keep-all}
+.verdict .vn{margin-top:8px;font-size:12px;color:var(--muted)}
+/* 좋음·나쁨 꼬리표 */
+.tn{display:inline-block;font-style:normal;font-size:12px;font-weight:800;padding:1px 8px;border-radius:999px;margin-right:7px;vertical-align:2px}
+.tn.t-up{background:rgba(62,224,161,.18);color:var(--up)}.tn.t-down{background:rgba(255,123,138,.18);color:var(--down)}.tn.t-flat{background:rgba(203,213,225,.16);color:var(--sub)}
+.pts li.t-up{border-left:4px solid var(--up)}.pts li.t-down{border-left:4px solid var(--down)}.pts li.t-flat{border-left:4px solid #94a3b8}
+/* 앞으로 이렇게 되면 */
+.scl{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px}
+.sc{border-radius:12px;padding:11px 13px;background:var(--card2);border:1px solid var(--line);border-top:4px solid #94a3b8}
+.sc.t-up{border-top-color:var(--up)}.sc.t-down{border-top-color:var(--down)}
+.sc .if,.sc .then{font-size:15px;line-height:1.55;word-break:keep-all}
+.sc .then{margin-top:6px;font-weight:600}
+.sc span{display:inline-block;font-size:12px;font-weight:800;color:var(--muted);margin-right:7px;min-width:34px}
+.sc.t-up .then span{color:var(--up)}.sc.t-down .then span{color:var(--down)}
+/* 역풍·순풍 설명 */
+.wmean .wi{margin:6px 0 10px;font-size:15.5px;line-height:1.65;color:#e2e9f7;word-break:keep-all}
+.zl{display:flex;flex-direction:column;gap:6px}
+.zr{display:grid;grid-template-columns:170px 1.1fr 1.6fr 1.2fr;gap:12px;align-items:center;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:14.5px;word-break:keep-all}
+.zr.zh{background:none;border:none;padding:0 12px;font-size:12.5px;color:var(--muted);font-weight:700}
+.zr.cur{border:2px solid var(--zc);background:#22396a}
+.zr .zn{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.zr .zn i{width:12px;height:12px;border-radius:3px;flex:none}
+.zr .zn b{font-size:15.5px}.zr .zn em{font-style:normal;color:var(--muted);font-size:13px}
+.zr .zn u{text-decoration:none;font-size:11.5px;font-weight:800;padding:1px 7px;border-radius:999px;background:var(--zc);color:#16264a}
+.zr .za b{display:block;font-weight:700}.zr .za{color:var(--sub)}
+.zr .zp{display:flex;flex-direction:column}.zr .zp b{font-size:16px}.zr .zp span{font-size:12.5px;color:var(--muted)}
+/* 풍향계가 앞서는가 요약 */
+.leadv{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.leadv>div{font-size:14.5px;line-height:1.6;padding:8px 11px;border-radius:9px;background:var(--card2);border:1px solid var(--line);word-break:keep-all}
+.leadv b:first-child{display:block;color:var(--gold);font-size:12.5px;margin-bottom:1px}
+/* 지금 점수면 과거엔 */
+.cnow{margin:6px 0 12px;padding:12px 14px;border-radius:12px;background:#22396a;border:2px solid var(--gold2);font-size:15.5px;line-height:1.65;word-break:keep-all}
+.cnow.tc{border-color:var(--tc4)}.cnow.lq{border-color:var(--lq5)}
+.cnow>b{display:block;font-size:16.5px;margin-bottom:2px}
+@media (max-width:980px){
+  .zr{grid-template-columns:1fr 1fr;gap:6px 12px}.zr.zh{display:none}
+  .zr .zn{grid-column:1 / -1}.zr .za{grid-column:1 / -1}
+}
+@media (max-width:560px){
+  .verdict .vr{grid-template-columns:1fr;gap:2px}
+  .verdict .vt{font-size:16.5px}
+  .zr{grid-template-columns:1fr}
+}

@@ -16,6 +16,7 @@
 - `FABLE.md` — 해석·편집 담당(Fable) 지침
 - `scripts/brief.py` — Fable에게 넘길 자료 묶음(`data/raw/brief_<날짜>.json`, 커밋 안 됨)
 - `scripts/check_comments.py` — 코멘트 형식·숫자 대조 검사
+- `scripts/backfill_sp500_ma.py` — S&P500 50·200일선 위 비율 과거값(2017~)을 구성종목 일봉으로 계산 (한 번만 실행)
 - `apps-script/Code.gs` — 구글 시트 기록·구독자 메일
 
 공개 데이터를 자동으로 모아 계산한 참고 자료이며 투자 권유가 아닙니다.

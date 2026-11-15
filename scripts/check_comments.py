@@ -20,10 +20,11 @@ DATA = os.path.join(ROOT, "data")
 TONES = {"up", "down", "flat"}
 FEAT_KEYS = ["tag", "bm", "e1", "e2", "point", "caution"]
 LIMITS = {  # 화면에서 넘치지 않게 (글자 수, 넘으면 경고)
-    "wind.headline": 80, "market.headline": 60, "point.h": 32, "point.t": 230,
-    "card.tag": 12, "card.title": 26, "card.num": 26, "card.back": 230,
-    "tc_summary": 170, "lq_summary": 170, "quad": 260, "feature": 40, "feature.tag": 14,
+    "wind.headline": 80, "wind.verdict": 60, "guide": 95, "scen": 110, "market.headline": 60, "point.h": 32, "point.t": 260,
+    "card.tag": 12, "card.title": 26, "card.num": 26, "card.back": 240,
+    "tc_summary": 420, "lq_summary": 420, "quad": 480, "feature": 40, "feature.tag": 14,
 }
+VAGUE = ["주시할 필요", "유의할 필요", "신중한 접근", "지켜볼 필요", "관심이 필요"]
 STRONG = ["매수하세요", "매도하세요", "사세요", "파세요", "사야 합니다", "팔아야 합니다", "무조건", "반드시 오", "확실히 오",
           "확실히 내", "추천합니다", "지금 당장", "올인", "finviz", "Finviz"]
 NAMES = ["S&P500", "S&P 500", "나스닥100", "나스닥 100", "다우30", "코스피200", "M2", "10년물", "2년물", "200일선", "50일선",
@@ -120,32 +121,44 @@ def main():
             warns.append(f"{where}.{key} {len(v)}자 (권장 {lim}자 이하)")
         return v
 
-    def points(key, n=3):
-        P = cm.get(key)
+    def points(P, key, n=3):
         if not isinstance(P, list) or len(P) != n:
-            errors.append(f"{key}: {n}개 {{h,t}} 목록이어야 함")
+            errors.append(f"{key}: {n}개 {{tone,h,t}} 목록이어야 함")
             return
         for j, p in enumerate(P):
             need_str(p, "h", f"{key}[{j}]", LIMITS["point.h"])
             need_str(p, "t", f"{key}[{j}]", LIMITS["point.t"])
+            if p.get("tone") not in TONES:
+                errors.append(f"{key}[{j}].tone은 up/down/flat 중 하나")
 
     if cm.get("date") != date:
         errors.append(f"date가 {date}가 아님 ({cm.get('date')})")
     W = cm.get("wind") or {}
     need_str(W, "headline", "wind", LIMITS["wind.headline"])
-    if not isinstance(W.get("points"), list) or len(W.get("points")) != 3:
-        errors.append("wind.points: 3개 {h,t} 목록이어야 함")
+    need_str(W, "verdict", "wind", LIMITS["wind.verdict"])
+    G = W.get("guide")
+    if not isinstance(G, dict):
+        errors.append("wind.guide 없음 ({buy, hold, watch})")
     else:
-        for j, p in enumerate(W["points"]):
-            need_str(p, "h", f"wind.points[{j}]", LIMITS["point.h"])
-            need_str(p, "t", f"wind.points[{j}]", LIMITS["point.t"])
+        for k in ("buy", "hold", "watch"):
+            need_str(G, k, "wind.guide", LIMITS["guide"])
+    points(W.get("points"), "wind.points")
+    SC = W.get("scenarios")
+    if not isinstance(SC, list) or not 2 <= len(SC) <= 4:
+        errors.append("wind.scenarios: 2~4개 {tone,if,then} 목록이어야 함")
+    else:
+        for j, x in enumerate(SC):
+            need_str(x, "if", f"wind.scenarios[{j}]", LIMITS["scen"])
+            need_str(x, "then", f"wind.scenarios[{j}]", LIMITS["scen"])
+            if x.get("tone") not in TONES:
+                errors.append(f"wind.scenarios[{j}].tone은 up/down/flat 중 하나")
     M = cm.get("market") or {}
     mh = need_str(M, "headline", "market", LIMITS["market.headline"])
     if cm.get("oneliner") != mh:
         errors.append("oneliner는 market.headline과 같아야 함")
     cards = M.get("cards")
-    if not isinstance(cards, list) or not 4 <= len(cards) <= 5:
-        errors.append("market.cards: 4~5장이어야 함")
+    if not isinstance(cards, list) or not 4 <= len(cards) <= 8:
+        errors.append("market.cards: 4~8장이어야 함")
     else:
         for j, cd in enumerate(cards):
             if cd.get("tone") not in TONES:
@@ -156,8 +169,8 @@ def main():
         need_str(cm, k, "", LIMITS[k])
     for k in ("tc", "lq"):
         need_str(cm, k, "")
-    points("tc_points")
-    points("lq_points")
+    points(cm.get("tc_points"), "tc_points")
+    points(cm.get("lq_points"), "lq_points")
     F = cm.get("features")
     want = [r["t"] for r in (board or {}).get("features") or []]
     if want:
@@ -188,11 +201,14 @@ def main():
     if miss:
         warns.append("회사 설명 없음: " + ", ".join(miss))
 
-    # 단정적 표현
+    # 단정적 표현 · 뜬구름 표현
     for p, s in walk_strings(cm):
         for w in STRONG:
             if w in s:
                 warns.append(f"{p}: '{w}' — 단정적 지시/표기 금지 표현")
+        for w in VAGUE:
+            if w in s:
+                warns.append(f"{p}: '{w}' — 뜬구름 표현, 숫자 기준과 행동으로 바꿀 것")
 
     # 숫자 대조
     unverified = []

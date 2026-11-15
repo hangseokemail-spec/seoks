@@ -455,6 +455,10 @@ def build_board(date, df):
     a2 = jload(a2_path, {})
     a2[key] = breadth["sp500_above200"]
     jsave(a2_path, dict(sorted(a2.items())))
+    a5_path = os.path.join(DATA, "hist", "sp500_a50.json")  # 2017~ 과거값은 scripts/backfill_sp500_ma.py
+    a5 = jload(a5_path, {})
+    a5[key] = breadth["sp500_above50"]
+    jsave(a5_path, dict(sorted(a5.items())))
     prev_keys = [k for k in sorted(bh) if k < key]
     prev = {"date": prev_keys[-1], **bh[prev_keys[-1]]} if prev_keys else None
 

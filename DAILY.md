@@ -42,7 +42,7 @@ curl로 봇 차단을 우회하지 않는다. 못 찾으면 비워 두고 넘어
 ## 4. 웹 사실 조사 (2~3분) — Opus → `data/raw/research_<날짜>.json`
 해석은 하지 않고 **확인된 사실만** 짧게 적는다 (한국어, 숫자 포함, 출처·주소 필수). 검색은 한 번에 병렬로.
 먼저 `python3 scripts/brief.py` 를 한 번 실행해 오늘 대표 신고가·강세주·약세주와 `대표_신고가_이전코멘트`를 확인한다.
-- **news**: 그날(미국 날짜) 시장 전체 흐름 기사 2~4건. 지수 등락의 보도된 이유, 큰 경제지표·연준 발언 등.
+- **news**: 그날(미국 날짜) 시장 전체 흐름 기사 3~6건. 지수 등락의 보도된 이유, 큰 경제지표·연준 발언, 업종 이슈 등 (카드뉴스가 최대 8장이라 재료가 넉넉하면 좋다).
 - **movers**: S&P500 강세주·약세주 상위 3개씩과 시총 상위 중 ±3% 이상 움직인 종목 — 그날 날짜 기사로 원인이 확인된 것만. 못 찾으면 넣지 않는다.
 - **earnings**: 대표 신고가 중 `대표_신고가_이전코멘트`가 없거나, 그 뒤에 새 실적이 나온 종목만. 최근 분기 공시·보도자료의 매출·EPS·가이던스.
 - **notes**: 못 구한 값, 이전 값을 유지한 지표 등.
@@ -67,7 +67,8 @@ python3 scripts/brief.py        # → data/raw/brief_<날짜>.json (research 포
 Agent(subagent_type: "general-purpose", model: "fable", description: "Seoks 해석·편집", run_in_background: false,
       prompt: "당신은 Seoks 증시현황판의 해석·편집 담당입니다. /home/claude/seoks/FABLE.md 를 읽고 그대로 따르세요.
                날짜: <YYYY-MM-DD>. 자료 묶음: /home/claude/seoks/data/raw/brief_<YYYY-MM-DD>.json.
-               할 일: data/comments/<YYYY-MM-DD>.json 작성·편집, data/notes/companies.json 회사 설명 추가, check_comments.py 자체 검사.
+               할 일: data/comments/<YYYY-MM-DD>.json 작성·편집(총평·행동 가이드·시나리오 포함, 카드 4~8장), data/notes/companies.json 회사 설명 추가, check_comments.py 자체 검사.
+               독자는 초보입니다. 좋다/나쁘다, 사기/기다리기/줄이기, 조심할 것을 숫자 기준과 함께 분명하게 쓰세요.
                웹검색은 하지 말고 자료 묶음의 사실·숫자만 쓰세요. 끝나면 FABLE.md 6절 형식으로 짧게 보고하세요.")
 ```
 - 결과 파일: `data/comments/<날짜>.json`, `data/notes/companies.json` (추가분).
@@ -95,7 +96,7 @@ curl -sS -X POST "https://api.onesignal.com/notifications?c=push" \
   -H "Authorization: Key $ONESIGNAL_KEY" -H "Content-Type: application/json" \
   -d '{"app_id":"c323691f-5bf6-4942-aac1-fd6254f1b0c0","target_channel":"push","included_segments":["Total Subscriptions"],
        "headings":{"en":"Seoks <M/D> 마감","ko":"Seoks <M/D> 마감"},
-       "contents":{"en":"<wind.headline>","ko":"<wind.headline>"},
+       "contents":{"en":"풍향계 <n> <구간> · <wind.verdict>","ko":"풍향계 <n> <구간> · <wind.verdict>"},
        "url":"https://hangseokemail-spec.github.io/seoks/"}'
 ```
 - 응답에 `errors`가 있으면 재시도하지 말고 마지막 메시지에 "다른 사람 알림 발송 실패: <이유>" 한 줄을 붙인다.
@@ -105,7 +106,8 @@ curl -sS -X POST "https://api.onesignal.com/notifications?c=push" \
 300자 이내, 이 형식 그대로:
 ```
 Seoks <M/D> 마감 | 풍향계 <n> <구간> | S&P <±x.xx%> 나스닥 <±x.xx%> | 트렌드캐치 <x.x> <판단> · 유동성 <x.x> <판단>
-<wind.headline>
+총평: <wind.verdict>
+조심: <wind.guide.watch>
 https://hangseokemail-spec.github.io/seoks/
 ```
 문제가 있었으면(지표 누락, 재시도, 알림 실패, Fable 사용 불가 등) 한 줄 덧붙인다.

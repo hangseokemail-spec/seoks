@@ -217,8 +217,9 @@ def label_lq(x):
 # FRED 관측일 → 실제 공개일 (미리보기 편향 방지)
 LAG = {"WALCL": 1, "WTREGEN": 1, "RRPONTSYD": 0, "M2SL": 55, "EFFR": 1, "BAMLH0A0HYM2": 1,
        "TOTBKCR": 9, "NFCI": 5, "DGS10": 1, "VIXCLS": 0}
-STALE = {"WALCL": 16, "WTREGEN": 16, "RRPONTSYD": 7, "M2SL": 100, "EFFR": 7, "BAMLH0A0HYM2": 7,
-         "TOTBKCR": 21, "NFCI": 16, "DGS10": 7, "VIXCLS": 7}
+# 다음 발표 전까지 가장 최근 값을 쓰되, 수집이 끊긴 경우를 막기 위한 상한(일)
+STALE = {"WALCL": 30, "WTREGEN": 30, "RRPONTSYD": 10, "M2SL": 130, "EFFR": 10, "BAMLH0A0HYM2": 10,
+         "TOTBKCR": 35, "NFCI": 30, "DGS10": 10, "VIXCLS": 10}
 
 
 def asof(series, dates, lag=0, stale=9999):
@@ -255,9 +256,10 @@ def manual_series(manual, dates):
             return pd.Series(np.nan, index=dates), pd.Series(pd.NaT, index=dates)
         s = pd.Series({pd.Timestamp(i[datekey]): i[key] for i in items if i.get(key) is not None}).sort_index()
         return asof(s, dates, lag, stale)
-    out["fg"], obs["fg"] = mk(manual.get("fg"), "value", 6)
-    out["pc"], obs["pc"] = mk(manual.get("pc"), "value", 6)
-    out["aaii"], obs["aaii"] = mk(manual.get("aaii"), "spread", 12)
+    # 가장 최근 발표값 사용 (일간 10일, 주간 30일 상한), 관측일은 화면에 표시
+    out["fg"], obs["fg"] = mk(manual.get("fg"), "value", 10)
+    out["pc"], obs["pc"] = mk(manual.get("pc"), "value", 10)
+    out["aaii"], obs["aaii"] = mk(manual.get("aaii"), "spread", 30)
     # Margin debt: 월말 기준, 다음 달 3주차 공개 → 관측일=월말, 공개 지연 21일
     mm = manual.get("margin") or []
     if mm:
@@ -271,7 +273,7 @@ def manual_series(manual, dates):
         for i in mm:  # 발표된 YoY가 있으면 그 값을 우선
             if i.get("yoy") is not None:
                 yoy[me(i["month"])] = float(i["yoy"])
-        out["margin"], obs["margin"] = asof(pd.Series(yoy).sort_index(), dates, 21, 75)
+        out["margin"], obs["margin"] = asof(pd.Series(yoy).sort_index(), dates, 21, 120)
     else:
         out["margin"], obs["margin"] = pd.Series(np.nan, index=dates), pd.Series(pd.NaT, index=dates)
     return out, obs
@@ -314,6 +316,9 @@ def build_series():
     ms, mobs = manual_series(manual, dates)
     col["tc_fg"], col["tc_pc"], col["tc_aaii"], col["tc_margin"] = ms["fg"], ms["pc"], ms["aaii"], ms["margin"]
     obs.update({"fg": mobs["fg"], "pc": mobs["pc"], "aaii": mobs["aaii"], "margin": mobs["margin"]})
+    for k in ("fg", "pc", "aaii", "margin"):
+        col[f"obs_{k}"] = mobs[k].map(lambda x: x.strftime("%Y-%m-%d") if pd.notna(x) else None)
+
 
     # ---- 유동성 원값
     col["lq_fed"], obs["fed"] = pct_change_days(F["WALCL"], dates, 91, LAG["WALCL"], STALE["WALCL"])
@@ -372,6 +377,9 @@ def series_json(df):
     prec = {"kospi": 2, "kospi_next": 2, "spx": 2, "ixic": 2, "dji": 2, "ndx": 2, "lq_nl_level": 0}
     cols = {}
     for k in df.columns:
+        if k.startswith("obs_"):
+            cols[k] = [v if isinstance(v, str) else None for v in df[k].values]
+            continue
         n = prec.get(k, 3 if k.startswith(("lq_", "tc_", "us10y", "dxy", "vix")) else 2)
         cols[k] = [rnd(v, n) for v in df[k].values]
     return {"dates": [d.strftime("%Y-%m-%d") for d in df.index], "cols": cols}

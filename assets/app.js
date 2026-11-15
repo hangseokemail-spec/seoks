@@ -160,8 +160,13 @@
       const src = { spx: "spx", ixic: "ndx", dji: "dji", ndx: "ndx", kospi: "kospi" }[k];
       const it = src && ID[src];
       if (it) {
-        const base = k === "kospi" ? (seriesIdx("kospi", i - 1) || {}).close : null;
-        return dayChart(it, base) + `<div class="cl2">장중 ${k === "kospi" ? "(한국 시간)" : `· ${it.src} 기준`}</div>`;
+        const prevIdx = (() => { const a = C(k); let j = i - 1; while (j >= 0 && a[j] == null) j--; return j >= 0 ? a[j] : null; })();
+        if (k === "kospi") return dayChart(it, prevIdx) + `<div class="cl2">장중 흐름 · 네이버 분봉</div>`;
+        if (prevIdx && it.prev) {  // ETF 흐름을 지수 전일 종가 기준으로 환산
+          const sc = { pts: it.pts.map((p) => prevIdx * p / it.prev), prev: prevIdx };
+          return dayChart(sc) + `<div class="cl2">장중 흐름 · finviz ${it.src} 5분봉으로 환산</div>`;
+        }
+        return dayChart(it) + `<div class="cl2">장중 흐름 · finviz ${it.src}</div>`;
       }
       return spark(x.spark, up) + `<div class="cl2">최근 6거래일</div>`;
     };
@@ -235,9 +240,9 @@
       <button class="muted click" data-info="board:features" style="font-size:12.5px">선정 기준</button></div>
       ${b.features.length ? `<div class="grid g4">${cards}</div>` : `<div class="empty">이날 S&P500 종목 중 52주 신고가가 없었습니다.</div>`}</div>`;
     // 신고가 TOP40 표
-    const t40 = b.top40.map((r, n) => `<tr><td class="r muted">${n + 1}</td><td class="t">${r.t}${r.sp ? '<span class="badge-sp">S&P</span>' : ""}</td><td class="ds">${esc(descOf(r))}</td><td>${esc(r.sector)}</td><td class="r num">$${r.mcap >= 1000 ? n2(r.mcap / 1000, 1) + "B" : n2(r.mcap, 0) + "M"}</td><td class="r ${cls(r.chg)} num">${sgn(r.chg, 2, "%")}</td></tr>`).join("");
+    const t40 = b.top40.map((r, n) => `<tr><td class="r muted">${n + 1}</td><td class="t">${r.t}${r.sp ? '<span class="badge-sp">S&P</span>' : ""}</td><td class="ds">${esc(descOf(r))}</td><td class="hs">${esc(r.sector)}</td><td class="r num hs2">$${r.mcap >= 1000 ? n2(r.mcap / 1000, 1) + "B" : n2(r.mcap, 0) + "M"}</td><td class="r ${cls(r.chg)} num">${sgn(r.chg, 2, "%")}</td></tr>`).join("");
     html += `<div class="card sec"><h3>신고가 TOP${top} 종목</h3><div class="cap">시가총액 순 · S&P = S&P500 구성종목 · 회사 설명은 Claude가 작성 (없으면 finviz 업종)</div>
-      <table class="st"><tr><th class="r">#</th><th>티커</th><th>무슨 회사</th><th>섹터</th><th class="r">시총</th><th class="r">등락</th></tr>${t40}</table></div>
+      <table class="st"><tr><th class="r">#</th><th>티커</th><th>무슨 회사</th><th class="hs">섹터</th><th class="r hs2">시총</th><th class="r">등락</th></tr>${t40}</table></div>
       <div class="note">자료: finviz Elite (미국 ${short(b.date)} 정규장) · 네이버 증권 · 기업 공시·뉴스 / 실적은 당일 상승의 단일 원인으로 단정하지 않음 · 생성 ${esc(b.generated)}</div>`;
     $("#view").innerHTML = html;
     killChart("donut"); killChart("secbar");
@@ -260,13 +265,21 @@
     if (kind === "lq" && m.key === "y10") { const c = at("lq_y10_chg", i); return `${n2(v, 2)}% <small class="sub">(13주 ${sgn(c, 0, "bp")})</small>`; }
     return (SIGNED.has(m.key) ? sgn(v, m.dec) : n2(v, m.dec)) + m.unit;
   }
+  const MANUAL = new Set(["fg", "pc", "aaii", "margin"]);
+  function obsFor(kind, key, i) {
+    if (MANUAL.has(key)) return at("obs_" + key, i);
+    if (i !== D().length - 1 || !S.latest.asof) return null;
+    const k2 = kind === "lq" && key === "hy" ? "lq_hy" : key === "y10" ? "us10y" : key;
+    return S.latest.asof[k2] || null;
+  }
   function tiles(kind, list, i) {
     const p = kind === "tc" ? "s_tc_" : "s_lq_", L = kind === "tc" ? M.TC_LABELS : M.LQ_LABELS, col = kind === "tc" ? (s) => TCC[s - 1] : (s) => LQC[s - 1];
     const j = i - 5;
     return list.map((m) => {
       const s = at(p + m.key, i), s0 = at(p + m.key, j);
       const arrow = s == null || s0 == null ? "" : s > s0 ? `<span class="up">▲${s - s0}</span>` : s < s0 ? `<span class="down">▼${s0 - s}</span>` : `<span class="flat">-</span>`;
-      return `<div class="tile ${s == null ? "stale" : ""}" data-info="${kind}:${m.key}"><div class="n">${m.name}</div><div class="v num">${rawFmt(kind, m, i)}</div>
+      const ob = obsFor(kind, m.key, i), obTxt = ob && ob !== D()[i] ? `<span class="ob">${short(ob)} 기준</span>` : "";
+      return `<div class="tile ${s == null ? "stale" : ""}" data-info="${kind}:${m.key}"><div class="n">${m.name}</div><div class="v num">${rawFmt(kind, m, i)}${obTxt}</div>
         <div class="f">${s ? `<span class="pill" style="background:${col(s)}">${s} ${L[s]}</span>` : pill(null)}<span>${m.w ? `<span class="w">${m.w}% · </span>` : ""}1주 전 ${arrow || "—"}</span></div></div>`;
     }).join("");
   }
@@ -315,7 +328,7 @@
       return `<div class="cl ${k === i ? "sel" : ""}" data-d="${D()[k]}" style="background:${CC[s - 1]}" title="${nm} ${D()[k]}: ${v}">${comp ? v : v}</div>`;
     }).join("");
     return `<div class="card"><h3 class="${kind}h">지표별 점수 히트맵</h3><div class="cap">주 마지막 거래일 기준 최근 12주 · 칸을 누르면 그 날짜로 이동 · ${kind === "tc" ? "파랑 = 공포, 빨강 = 광기" : "갈색 = 경색, 청록 = 풍부"}</div>
-      <div class="hm" style="grid-template-columns:118px repeat(${cols.length},minmax(0,1fr))">${head}${list.map((m) => row(m.short || m.name, m.key)).join("")}${row("종합", null, true)}</div></div>`;
+      <div class="hmwrap"><div class="hm" style="grid-template-columns:96px repeat(${cols.length},minmax(30px,1fr))">${head}${list.map((m) => row(m.short || m.name, m.key)).join("")}${row("종합", null, true)}</div></div></div>`;
   }
   function corrBlock(kind) {
     const Z = kind === "tc" ? TC_Z : LQ_Z;
@@ -389,13 +402,13 @@
     $("#view").innerHTML = `<div class="grid g2">${compositeCard("tc", i)}${quadrant(i, cm)}</div>
       ${cm.tc ? `<div class="oneliner"><span class="lb">트랜드캐치 코멘트</span><span class="tx">${esc(cm.tc)}</span></div>` : ""}
       <div class="card sec"><h3 class="tch">9개 지표</h3><div class="cap">타일을 누르면 계산 방법과 의미가 나옵니다 · 점수 5 = 광기, 1 = 공포</div>
-        <div class="grid g3" style="margin-top:8px">${tiles("tc", M.tc, i)}</div></div>
+        <div class="grid tg" style="margin-top:8px">${tiles("tc", M.tc, i)}</div></div>
       <div class="sec">${heatmap("tc", M.tc, i)}</div>${corrBlock("tc")}${analysisBlock("tc")}`;
     bindInfo(); bindHeat(); bindCorr("tc", i); drawMini("tc", i); bindAnalysis("tc");
   }
   async function viewLQ() {
     const i = idxOf(S.date), cm = (await comments(D()[i])) || {};
-    const byCat = ["A", "B", "C", "D"].map((c) => `<div class="catlb">${c}. ${M.LQ_CATS[c]}</div><div class="grid g3">${tiles("lq", M.lq.filter((m) => m.cat === c), i)}</div>`).join("");
+    const byCat = ["A", "B", "C", "D"].map((c) => `<div class="catlb">${c}. ${M.LQ_CATS[c]}</div><div class="grid tg">${tiles("lq", M.lq.filter((m) => m.cat === c), i)}</div>`).join("");
     // 카테고리 기여도
     const contrib = ["A", "B", "C", "D"].map((c) => {
       const ms = M.lq.filter((m) => m.cat === c); let ws = 0, sc = 0;
@@ -471,6 +484,25 @@
     draw();
   }
 
+  // ---------------------------------------------------------------- 휴대폰 알림 (OneSignal 웹 푸시)
+  function initPush() {
+    const btn = $("#pushbtn"); if (!btn) return;
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+    const setLabel = (OS) => { const on = OS && OS.User && OS.User.PushSubscription && OS.User.PushSubscription.optedIn; btn.textContent = on ? "알림 켜짐" : "알림 받기"; btn.classList.toggle("on", !!on); };
+    const ready = () => { btn.hidden = false; setLabel(window.__seoksPush); };
+    if (window.__seoksPush) ready(); else document.addEventListener("seoks-push-ready", ready);
+    if (ios && !standalone) { btn.hidden = false; btn.textContent = "알림 받기"; }
+    btn.onclick = async () => {
+      if (ios && !standalone) {
+        $("#mbox").innerHTML = `<button class="x" aria-label="닫기">×</button><h2>아이폰에서 알림 받기</h2><p>아이폰은 홈 화면에 추가한 Seoks에서만 알림을 받을 수 있습니다 (iOS 16.4 이상).</p><h4>방법</h4><p>1. Safari 아래쪽 공유 버튼을 누릅니다.<br>2. '홈 화면에 추가'를 누릅니다.<br>3. 홈 화면의 Seoks 아이콘으로 열고, 오른쪽 위 '알림 받기'를 누릅니다.</p>`;
+        $("#modal").classList.add("on"); $("#mbox .x").onclick = closeInfo; return;
+      }
+      const OS = window.__seoksPush; if (!OS) return;
+      try { await OS.Notifications.requestPermission(); if (!OS.User.PushSubscription.optedIn) await OS.User.PushSubscription.optIn(); } catch (e) { console.warn(e); }
+      setLabel(OS);
+    };
+  }
+
   // ---------------------------------------------------------------- 새 소식
   const LS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   function initBell() {
@@ -503,8 +535,7 @@
       else {
         const m = (kind === "tc" ? M.tc : M.lq).find((x) => x.key === key);
         const s = at((kind === "tc" ? "s_tc_" : "s_lq_") + key, i), L = kind === "tc" ? M.TC_LABELS : M.LQ_LABELS, col = kind === "tc" ? TCC : LQC;
-        const asofKey = { lq: { hy: "lq_hy" } }[kind]?.[key] || key;
-        const obs = isLast && S.latest.asof ? S.latest.asof[asofKey] : null;
+        const obs = obsFor(kind, key, i);
         h = `<h2>${m.name}</h2><div class="sub">${kind === "tc" ? "트랜드캐치" : "유동성 · " + M.LQ_CATS[m.cat] + " · 가중치 " + m.w + "%"}</div>
           <div class="cur"><span class="v num">${rawFmt(kind, m, i)}</span>${s ? `<span class="pill" style="background:${col[s - 1]}">${s}점 · ${L[s]}</span>` : pill(null)}<span class="muted">${short(d)} 기준${obs ? ` · 관측일 ${obs}` : ""}</span></div>
           <h4>무엇인가요</h4><p>${m.desc}</p><h4>계산 방법</h4><p>${m.formula}</p>
@@ -574,7 +605,7 @@
     readURL();
     if (!S.date) S.date = S.latest.date;
     if (Chart && Chart.defaults) { Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.color = "#c6d4ee"; }
-    initBell();
+    initBell(); initPush();
     render();
   }
   init();

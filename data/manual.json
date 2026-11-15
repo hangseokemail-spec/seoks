@@ -1,5 +1,5 @@
 {
- "_note": "웹에서 확인하는 지표. 매일 아침 Claude가 갱신. date=해당 값의 기준일(미국 날짜), aaii는 발표일(목), margin은 월.",
+ "_note": "웹에서 확인하는 지표. date=값의 기준일(미국 날짜), aaii는 발표일(목), margin은 월. 일간 지표가 비면 가장 최근 값을 쓰고 화면에 기준일을 표시.",
  "fg": [
   {
    "date": "2026-10-13",
@@ -75,66 +75,255 @@
  ],
  "margin": [
   {
+   "month": "2022-08",
+   "value": 687790,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2022-09",
+   "value": 664010,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2022-10",
+   "value": 649620,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2022-11",
+   "value": 643780,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2022-12",
+   "value": 606660,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-01",
+   "value": 641230,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-02",
+   "value": 624380,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-03",
+   "value": 645430,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-04",
+   "value": 631950,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-05",
+   "value": 644170,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-06",
+   "value": 681230,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-07",
+   "value": 709830,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-08",
+   "value": 689180,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-09",
+   "value": 680850,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-10",
+   "value": 635280,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-11",
+   "value": 660890,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2023-12",
+   "value": 700770,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-01",
+   "value": 701980,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-02",
+   "value": 742960,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-03",
+   "value": 784140,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-04",
+   "value": 775460,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-05",
+   "value": 809430,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-06",
+   "value": 809320,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-07",
+   "value": 810840,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-08",
+   "value": 797160,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-09",
+   "value": 813210,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-10",
+   "value": 815370,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-11",
+   "value": 890850,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2024-12",
+   "value": 899170,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2025-01",
+   "value": 937250,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2025-02",
+   "value": 918140,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2025-03",
+   "value": 880320,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2025-04",
+   "value": 850560,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2025-05",
+   "value": 920960,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
    "month": "2025-06",
    "value": 1008000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2025-07",
    "value": 1023000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2025-08",
    "value": 1060000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2025-09",
    "value": 1126000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2025-10",
    "value": 1184000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2025-11",
    "value": 1214000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2025-12",
    "value": 1226000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2026-01",
    "value": 1279000,
-   "src": "FINRA (YCharts 인용, 0.001조 달러 단위 반올림)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2026-02",
+   "value": 1253000,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2026-03",
+   "value": 1221000,
+   "src": "YCharts (FINRA 원자료, 반올림)"
+  },
+  {
+   "month": "2026-04",
+   "value": 1304000,
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2026-05",
    "value": 1416000,
-   "yoy": 53.7,
-   "src": "FINRA (YCharts 인용 금액 · 전년비는 thetrading.tools 인용)"
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2026-06",
    "value": 1502072,
-   "yoy": 49.0,
-   "src": "FINRA"
+   "src": "FINRA (백만 달러 정확값)"
   },
   {
    "month": "2026-07",
    "value": 1417225,
-   "src": "FINRA"
+   "src": "FINRA (백만 달러 정확값)"
+  },
+  {
+   "month": "2026-08",
+   "value": 1454000,
+   "src": "YCharts (FINRA 원자료, 반올림)"
   },
   {
    "month": "2026-09",
-   "yoy": 31.4,
-   "src": "FINRA (BofA 인용, 전년비만 확인)"
+   "value": 1480000,
+   "src": "YCharts (FINRA 원자료) · 전년비는 YCharts 표기값",
+   "yoy": 31.39
   }
  ]
 }

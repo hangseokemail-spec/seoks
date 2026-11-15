@@ -12,7 +12,7 @@ window.META = (function () {
       formula: "CNN 발표값을 그대로 씁니다. 0 = 극단적 공포, 100 = 극단적 탐욕.",
       bins: [["76~100 (극단적 탐욕)", 5], ["56~75 (탐욕)", 4], ["45~55 (중립)", 3], ["25~44 (공포)", 2], ["0~24 (극단적 공포)", 1]],
       up: "탐욕이 커지면 과열 경고 → 조정 가능성이 커집니다.", down: "공포가 커지면 저가 매수 기회 → 반등 가능성이 커집니다.",
-      src: { name: "CNN Business", url: "https://www.cnn.com/markets/fear-and-greed" }, freq: "매일 · 매일 아침 Claude가 웹에서 확인" },
+      src: { name: "CNN Business (보도된 값)", url: "https://edition.cnn.com/markets/fear-and-greed" }, freq: "매일 · CNN이 자동 수집을 막아 뉴스에 보도된 가장 최근 값을 씀 (값 옆에 기준일 표시)" },
     { key: "aaii", name: "Bull/Bear 스프레드", short: "AAII", unit: "%p", dec: 1,
       desc: "미국개인투자자협회(AAII) 주간 설문에서 '6개월 뒤 오를 것' 응답 비율에서 '내릴 것' 비율을 뺀 값입니다. 대표적인 역발상 지표입니다.",
       formula: "강세 응답(%) − 약세 응답(%)",
@@ -42,7 +42,7 @@ window.META = (function () {
       formula: "(이번 달 잔고 ÷ 12개월 전 잔고 − 1) × 100",
       bins: [["40% 초과", 5], ["20 ~ 40%", 4], ["−20 ~ 20%", 3], ["−30 ~ −20%", 2], ["−30% 미만", 1]],
       up: "빚투가 급증하면(점수↑) 과열·버블 신호, 하락 시 반대매매 위험.", down: "빚투가 줄면(점수↓) 디레버리징 진행, 바닥 형성 가능.",
-      src: { name: "FINRA Margin Statistics", url: "https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics" }, freq: "월간 · 다음 달 셋째 주 발표" },
+      src: { name: "YCharts · FINRA Margin Debt", url: "https://ycharts.com/indicators/finra_margin_debt" }, freq: "월간 · 다음 달 셋째 주 발표, 그 전까지 직전 달 값 사용" },
     { key: "a200", name: "200일선 위 종목 비율", short: "200일선 위", unit: "%", dec: 1,
       desc: "S&P500 구성종목 중 주가가 200일 이동평균선 위에 있는 종목의 비율입니다. 상승이 넓게 퍼져 있는지(시장 폭)를 봅니다.",
       formula: "S&P500 중 종가 > 200일 이동평균인 종목 수 ÷ 전체 종목 수 × 100",
@@ -106,7 +106,7 @@ window.META = (function () {
       formula: "(이번 달 잔고 ÷ 12개월 전 잔고 − 1) × 100",
       bins: [["40% 초과", 5], ["20 ~ 40%", 4], ["−20 ~ 20%", 3], ["−30 ~ −20%", 2], ["−30% 미만", 1]],
       up: "빚투 증가 → 유동성 활용 확대(과열 시 위험).", down: "빚투 감소 → 디레버리징.",
-      src: { name: "FINRA Margin Statistics", url: "https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics" }, freq: "월간" },
+      src: { name: "YCharts · FINRA Margin Debt", url: "https://ycharts.com/indicators/finra_margin_debt" }, freq: "월간 · 다음 달 셋째 주 발표, 그 전까지 직전 달 값 사용" },
     { key: "bank", cat: "C", w: 10, name: "상업은행 신용 YoY", short: "은행신용", unit: "%", dec: 2,
       desc: "미국 상업은행의 대출·증권 보유 총액의 1년 증가율입니다. 은행의 신용창출을 봅니다.",
       formula: "(최근 은행 신용 ÷ 12개월 전 − 1) × 100",
@@ -148,7 +148,7 @@ window.META = (function () {
     gainers: { name: "강세주 · 약세주", desc: "S&P500 구성종목 중 당일 등락률 상위 10개와 하위 5개, 시가총액 상위 10개 종목의 등락, 시총 가중 기준으로 가장 강했던·약했던 산업입니다.", formula: "산업 강도 = 산업 내 시총 가중 등락률 (종목 8개 이상, 산업 시총 500억 달러 이상). 회사 설명은 Claude가 작성하고, 없으면 finviz 업종명을 씁니다." },
     top40: { name: "신고가 TOP40 업종 분포", desc: "당일 52주 신고가 종목 중 특수증권을 빼고 시가총액 상위 40개(40개 미만이면 전부)를 업종별로 나눈 것입니다.", formula: "제외: 우선주(회사명에 PRF/PERPETUAL), SPAC(업종 Shell Companies), ETF, 같은 회사의 다른 주식. 업종은 finviz 분류." },
     features: { name: "대표 신고가 (S&P500)", desc: "당일 52주 신고가 종목 중 S&P500 구성종목만 골라 당일 상승률 순으로 최대 8개를 보여줍니다. S&P500 신고가가 8개보다 적은 날은 그 수만큼만 나옵니다.", formula: "BM·실적·포인트·주의는 매일 아침 Claude가 기업 공시와 뉴스를 확인해 작성합니다. 당일 상승의 단일 원인으로 단정하지 않습니다." },
-    index: { name: "주요 지수", desc: "미국 정규장 종가와 전일 대비 등락률입니다. 미니 차트는 최근 6거래일 종가입니다.", formula: "출처: 네이버 증권 해외지수. 10년물은 FRED DGS10(하루 늦게 공개)." },
+    index: { name: "주요 지수", desc: "미국 정규장 종가와 전일 대비 등락률입니다. 차트는 그날 장중 흐름입니다. finviz는 지수 자체를 내보내지 않아, 지수를 그대로 따라가는 ETF(S&P500=SPY, 나스닥=QQQ, 다우=DIA)의 5분봉을 지수 전일 종가 기준으로 환산했습니다. 점선은 전일 종가입니다.", formula: "종가·등락률: 네이버 증권 해외지수(공식 종가). 장중 흐름: finviz Elite ETF 5분봉. 코스피는 네이버 분봉. VIX·달러인덱스·10년물은 장중 자료가 없어 최근 6거래일 추이. 10년물은 FRED DGS10(하루 늦게 공개)." },
   };
 
   return { tc, lq, TC_LABELS, LQ_LABELS, TC_ACTION, LQ_STANCE, LQ_CATS, board };

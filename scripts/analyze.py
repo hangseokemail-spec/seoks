@@ -69,6 +69,9 @@ def build_indicators():
     v = vti["Volume"]; X["lq_vol"] = A(v / v.shift(1).rolling(20).mean() * 100, 0, 7)
     X["lq_nfci"] = A(F["NFCI"], 5, 16)
     n, p = chg(F["DGS10"], 91, 1, 7); X["lq_y10"] = (n - p) * 100
+    # 신용융자 YoY (YCharts/FINRA 월간, 2023-08~)
+    ms, _ = C.manual_series(C.jload(os.path.join(C.DATA, "manual.json"), {}), d)
+    X["tc_margin"] = X["lq_margin"] = ms["margin"]
     # 종합점수 (Seoks 시계열, 2023~)
     s = C.jload(os.path.join(C.DATA, "series.json"), None)
     if s:
@@ -80,12 +83,11 @@ def build_indicators():
 
 
 # 점수 방향: +1 = 값이 클수록 점수가 높음
-DIR = {"tc_vix": -1, "tc_hy": -1, "tc_a200": 1, "tc_rsi": 1, "tc_dev": 1, "tc": 1,
+DIR = {"tc_margin": 1, "lq_margin": 1, "tc_vix": -1, "tc_hy": -1, "tc_a200": 1, "tc_rsi": 1, "tc_dev": 1, "tc": 1,
        "lq_fed": 1, "lq_nl": 1, "lq_m2": 1, "lq_effr": -1, "lq_hy": -1, "lq_dxy": -1, "lq_bank": 1, "lq_vol": 1, "lq_nfci": -1, "lq_y10": -1, "lq": 1}
 NA = {"fg": "CNN 공포탐욕 과거 일별 자료를 자동으로 받을 수 없음 (매일 쌓이면 분석에 포함)",
       "aaii": "AAII 과거 주간 자료는 유료 회원 전용 (매주 쌓이면 분석에 포함)",
-      "pc": "Cboe 풋콜 과거 일별 자료를 자동으로 받을 수 없음 (매일 쌓이면 분석에 포함)",
-      "margin": "FINRA 신용융자 월간 자료가 2025년 이후만 확보됨"}
+      "pc": "Cboe 풋콜 과거 일별 자료를 자동으로 받을 수 없음 (매일 쌓이면 분석에 포함)"}
 
 
 def sp(a, b):

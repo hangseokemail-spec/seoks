@@ -11,8 +11,11 @@
 - `scripts/collect.py` — finviz Elite, 네이버 증권, FRED에서 수집해 `data/`에 JSON 생성 (키는 환경변수, 저장소에 없음)
 - `scripts/analyze.py` — 지표별 예측력(선행·후행) 분석 → `data/analysis.json`
 - `data/manual.json` — 웹에서 확인하는 지표(CNN F&G, AAII, Cboe Put/Call, FINRA 신용융자)
-- `data/comments/` — 매일 Claude가 쓰는 코멘트
-- `DAILY.md` — 매일 아침 Claude 예약 작업 절차
+- `data/comments/` — 매일 Claude가 쓰는 코멘트 (해석·편집 = Claude Fable)
+- `DAILY.md` — 매일 아침 Claude 예약 작업 절차 (수집·계산·검사·커밋·알림 = Claude Opus 5.5, 해석·편집 = Claude Fable)
+- `FABLE.md` — 해석·편집 담당(Fable) 지침
+- `scripts/brief.py` — Fable에게 넘길 자료 묶음(`data/raw/brief_<날짜>.json`, 커밋 안 됨)
+- `scripts/check_comments.py` — 코멘트 형식·숫자 대조 검사
 - `apps-script/Code.gs` — 구글 시트 기록·구독자 메일
 
 공개 데이터를 자동으로 모아 계산한 참고 자료이며 투자 권유가 아닙니다.

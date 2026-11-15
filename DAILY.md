@@ -4,11 +4,22 @@
 목표: **한국 시각 06:15 전후에 알림**. 빠르게, 그러나 숫자는 정확하게.
 API 키(FINVIZ_AUTH, FRED_KEY, ONESIGNAL_KEY)는 예약 작업 프롬프트로 전달된다. **키를 파일·커밋·메시지에 절대 쓰지 않는다.**
 
-## 1. 준비 (1분)
+## 0. 역할 분담 — 해석·편집은 Fable, 실질적인 일은 Opus 5.5
+
+| 단계 | 담당 | 내용 |
+|---|---|---|
+| 1~5 | **Opus 5.5** (메인 세션) | 준비 · 수집 · 웹 지표 보충 · 웹 사실 조사 · 자료 묶음 |
+| 6 | **Fable** (하위 에이전트, `model: "fable"`) | 해석(코멘트 작성) · 편집(다듬기·자체 검사) · 회사 한 줄 설명 — 지침 `FABLE.md` |
+| 7~10 | **Opus 5.5** (메인 세션) | 검사 · 저장 · 다른 사람 알림 · 마지막 메시지 |
+
+- 메인 세션이 Opus 5.5(`claude-opus-5-5`)가 아니면: 2~5단계를 `Agent(model: "opus")` 하나에, 7~9단계를 또 다른 `Agent(model: "opus")` 하나에 맡기고 메인 세션은 순서만 진행한다.
+- Opus는 코멘트 **문장 내용**을 쓰거나 고치지 않는다 (7단계의 예외만). 사실(숫자·뉴스·실적)은 Opus가 모으고, 그 사실로 무엇을 말할지는 Fable이 정한다.
+
+## 1. 준비 (1분) — Opus
 1. 저장소 연결: `hangseokemail-spec/seoks` (push 권한). `git clone --depth 1 https://github.com/hangseokemail-spec/seoks /home/claude/seoks`
 2. `pip install pandas numpy --break-system-packages -q` (없을 때만)
 
-## 2. 수집 (2분)
+## 2. 수집 (2분) — Opus
 ```
 cd /home/claude/seoks
 FINVIZ_AUTH=... FRED_KEY=... python3 scripts/collect.py
@@ -18,7 +29,7 @@ FINVIZ_AUTH=... FRED_KEY=... python3 scripts/collect.py
 - 미국 휴장일이면(날짜가 어제 그대로) 커밋하지 말고 "오늘은 미국 휴장" 한 줄로 끝낸다.
 - 이어서 `FINVIZ_AUTH=... FRED_KEY=... python3 scripts/analyze.py` (지표 예측력 분석 갱신, 20초 안팎).
 
-## 3. 웹 지표 보충 (3분) → `data/manual.json`
+## 3. 웹 지표 보충 (3분) — Opus → `data/manual.json`
 원칙: **매일 나오지 않는 값은 나온 날 반영하고, 그 전까지는 가장 최근 발표값을 그대로 쓴다** (화면에 기준일이 자동 표시됨).
 curl로 봇 차단을 우회하지 않는다. 못 찾으면 비워 두고 넘어간다.
 - **fg** (CNN 공포탐욕): CNN 사이트는 robots.txt로 자동 수집을 금지하므로 직접 열지 않는다. 웹검색으로 보도된 최근 값을 찾는다 (예: `"Fear & Greed" Benzinga "current reading"` → "At a current reading of N ... on <요일>"). 기사의 요일로 기준 날짜를 정해 `{"date": "<미국 날짜>", "value": N, "src": "Benzinga (CNN 인용)"}` 추가. 같은 날짜가 이미 있으면 건너뛴다.
@@ -28,37 +39,56 @@ curl로 봇 차단을 우회하지 않는다. 못 찾으면 비워 두고 넘어
 - 바꿨으면 `python3 scripts/collect.py --no-board` 다시 실행.
 - finviz는 요청이 많으면 일시 차단되므로 collect.py 외에 finviz를 따로 호출하지 않는다.
 
-## 4. 코멘트 (5~7분) → `data/comments/<날짜>.json`
-형식은 `data/comments/2026-11-13.json`과 같다. 한국어, 초보자도 이해하게, 숫자로. **확인 안 된 내용은 쓰지 않는다.**
-풍향계 값은 collect.py 마지막 출력의 `풍향계 {"wind":.., "zone":..}`와 `data/wind.json`에서 읽는다 (계산식: 65 − 15×트렌드캐치 + 10×유동성).
-- `wind.headline`: 풍향계 점수·구간·한 줄 판단 (60자 안팎). 새 소식·알림에 쓰인다.
-- `wind.points`: 3개 `{h, t}`. h = 한 줄 핵심(20자 안팎), t = 2~3문장 근거.
-  ① 지금 구간과 1주 전 대비 변화 ② 시장 속(Breadth·섹터)이 말하는 것 ③ 앞으로 볼 것(어떤 숫자가 어떻게 되면 순풍/역풍으로 바뀌는지).
-- `market.headline` (= `oneliner`에도 같은 값): 45자 안팎. "무슨 일 · 핵심 숫자".
-- `market.cards`: 카드뉴스 4~5장 `{tone, tag, title, num, back}`.
-  - tone: `up`(좋은 소식, 초록) / `down`(나쁜 소식, 빨강) / `flat`(애매·엇갈림, 회색). 주식시장에 좋은지 나쁜지 기준으로 일관되게.
-  - tag 8자 안팎, title 20자 안팎(앞면 큰 글씨), num = 핵심 숫자 하나, back = 뒷면 2~3문장(숫자·확인된 사실).
-  - 보통 구성: 그날 가장 큰 변화(업종·종목) / 강한 쪽 / 시장 체력(신고가·신저가·200일선) / 지수 흐름 / 심리·유동성.
-  - 뉴스는 그날 날짜 기사를 웹검색으로 확인한 것만. 개별 종목 급등락 원인을 확인 못 했으면 짐작하지 말고 "원인은 확인된 보도가 없어 적지 않음".
-- `market.news`, `market.leaders`: 예전 형식(없어도 됨, 있으면 유지).
-- `tc_summary`, `lq_summary`: 종합 카드 아래 '종합의견' 1~2문장. 점수·라벨·무엇이 올리고 내리는지.
-- `tc_points`, `lq_points`: 3개 `{h, t}`. ① 무엇을 알 수 있나 ② 왜 봐야 하나(근거 숫자, analysis.json의 순위상관 등) ③ 무엇을 할까/조심할까(어떤 점수·숫자가 되면 무엇을 검토하는지 기준 제시).
-  판단 보조로 쓰되 단정적인 매수·매도 지시는 피한다 ("~을 검토할 때", "~을 줄이는 편이 낫다").
-- `tc`, `lq`: 예전 형식 2~3문장(풍향계 카드 fallback용, 유지).
-- `quad`: 사분면 판단 보조 2~3문장. 보이는 움직임을 다시 묘사하지 말고, 지금 칸이 행동으로 무엇을 뜻하는지와 어느 선을 넘으면 무엇을 검토할지.
-- `features`: board의 `features`(S&P500 신고가, 최대 9개) 각각 `tag`(10자 안팎), `bm`, `e1`, `e2`(최근 실적·신고가 배경), `point`, `caution`.
-  - 실적은 최근 분기 공시·보도자료를 웹검색으로 확인한다. 여러 종목 검색은 한 번에 병렬로.
-  - 당일 상승의 원인을 단정하지 않는다.
-- `data/notes/companies.json`: board의 `top40`·`gainers`·`losers`·`mega`·`features` 종목 중 `desc`가 없는 종목에 한 줄 설명(20자 안팎, 무슨 회사인지)을 추가한다.
-  - 확실히 아는 회사만 직접 쓰고, 모르면 업종(`ind`)과 국가를 우리말로 옮겨 쓴다 (예: "미국 지역은행"). 지어내지 않는다.
+## 4. 웹 사실 조사 (2~3분) — Opus → `data/raw/research_<날짜>.json`
+해석은 하지 않고 **확인된 사실만** 짧게 적는다 (한국어, 숫자 포함, 출처·주소 필수). 검색은 한 번에 병렬로.
+먼저 `python3 scripts/brief.py` 를 한 번 실행해 오늘 대표 신고가·강세주·약세주와 `대표_신고가_이전코멘트`를 확인한다.
+- **news**: 그날(미국 날짜) 시장 전체 흐름 기사 2~4건. 지수 등락의 보도된 이유, 큰 경제지표·연준 발언 등.
+- **movers**: S&P500 강세주·약세주 상위 3개씩과 시총 상위 중 ±3% 이상 움직인 종목 — 그날 날짜 기사로 원인이 확인된 것만. 못 찾으면 넣지 않는다.
+- **earnings**: 대표 신고가 중 `대표_신고가_이전코멘트`가 없거나, 그 뒤에 새 실적이 나온 종목만. 최근 분기 공시·보도자료의 매출·EPS·가이던스.
+- **notes**: 못 구한 값, 이전 값을 유지한 지표 등.
+```json
+{
+ "date": "<YYYY-MM-DD>",
+ "news": [{"fact": "…", "src": "Reuters", "url": "https://…", "pub": "<기사 날짜>"}],
+ "movers": {"<티커>": {"fact": "…", "src": "…", "url": "…"}},
+ "earnings": {"<티커>": {"facts": ["3Q 매출 $134억 (+7%), 물량 +5%", "연간 가이던스 상향"], "src": "회사 3Q 실적 발표 (10/21)", "url": "…"}},
+ "notes": ["공포탐욕 오늘 값 보도 없음 → 11/5 값 유지"]
+}
+```
 
-## 5. 저장 (1분)
+## 5. 자료 묶음 (10초) — Opus
+```
+python3 scripts/brief.py        # → data/raw/brief_<날짜>.json (research 포함, 커밋 안 됨)
+```
+
+## 6. 해석·편집 (4~6분) — Fable
+하위 에이전트를 **하나** 띄운다 (끝날 때까지 기다림):
+```
+Agent(subagent_type: "general-purpose", model: "fable", description: "Seoks 해석·편집", run_in_background: false,
+      prompt: "당신은 Seoks 증시현황판의 해석·편집 담당입니다. /home/claude/seoks/FABLE.md 를 읽고 그대로 따르세요.
+               날짜: <YYYY-MM-DD>. 자료 묶음: /home/claude/seoks/data/raw/brief_<YYYY-MM-DD>.json.
+               할 일: data/comments/<YYYY-MM-DD>.json 작성·편집, data/notes/companies.json 회사 설명 추가, check_comments.py 자체 검사.
+               웹검색은 하지 말고 자료 묶음의 사실·숫자만 쓰세요. 끝나면 FABLE.md 6절 형식으로 짧게 보고하세요.")
+```
+- 결과 파일: `data/comments/<날짜>.json`, `data/notes/companies.json` (추가분).
+- Fable을 쓸 수 없으면(모델 오류 등) Opus가 `FABLE.md`대로 직접 쓰고, 마지막 메시지에 "Fable 사용 불가 → Opus 작성" 한 줄을 붙인다.
+
+## 7. 검사 (1분) — Opus
+```
+python3 scripts/check_comments.py <날짜>
+```
+- `errors`가 있거나 `unverified_numbers`가 남아 있으면 **SendMessage로 같은 Fable 에이전트에** 검사 결과를 보내 고치게 한다 (한 번만).
+- 그래도 남으면 Opus가 최소한만 손댄다: JSON 형식 오류만 고치고, 근거를 찾을 수 없는 숫자가 든 구절은 지운다(새 문장을 쓰지 않음). 마지막 메시지에 "검사 경고 n건 정리" 한 줄.
+- 숫자를 고치기 전에는 Opus가 직접 자료(board·series·research)를 확인한다. 계산값(예: 453÷75≈6배)이 맞으면 그대로 둔다.
+
+## 8. 저장 (1분) — Opus
 ```
 git add data && git commit -m "data: <날짜>" && git -c push.negotiate=true push
 ```
+(`data/raw/`는 .gitignore 대상이라 자료 묶음·사실 조사 파일은 올라가지 않는다.)
 GitHub Pages가 1분 안에 반영한다: https://hangseokemail-spec.github.io/seoks/
 
-## 6. 다른 사람들 휴대폰 알림 (OneSignal 웹 푸시)
+## 9. 다른 사람들 휴대폰 알림 (OneSignal 웹 푸시) — Opus
 `ONESIGNAL_KEY`는 예약 작업 프롬프트로 전달된다. 제목·내용의 `<...>`를 채워 한 번만 보낸다.
 ```
 curl -sS -X POST "https://api.onesignal.com/notifications?c=push" \
@@ -69,12 +99,13 @@ curl -sS -X POST "https://api.onesignal.com/notifications?c=push" \
        "url":"https://hangseokemail-spec.github.io/seoks/"}'
 ```
 - 응답에 `errors`가 있으면 재시도하지 말고 마지막 메시지에 "다른 사람 알림 발송 실패: <이유>" 한 줄을 붙인다.
+- 구독자가 없으면 "not subscribed" 오류가 오는데, 실패가 아니니 그대로 넘어간다.
 
-## 7. 마지막 메시지 (= 선생님 휴대폰 Claude 알림)
+## 10. 마지막 메시지 (= 선생님 휴대폰 Claude 알림) — Opus
 300자 이내, 이 형식 그대로:
 ```
 Seoks <M/D> 마감 | 풍향계 <n> <구간> | S&P <±x.xx%> 나스닥 <±x.xx%> | 트렌드캐치 <x.x> <판단> · 유동성 <x.x> <판단>
 <wind.headline>
 https://hangseokemail-spec.github.io/seoks/
 ```
-문제가 있었으면(지표 누락, 재시도, 알림 실패 등) 한 줄 덧붙인다.
+문제가 있었으면(지표 누락, 재시도, 알림 실패, Fable 사용 불가 등) 한 줄 덧붙인다.

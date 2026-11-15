@@ -2,7 +2,16 @@
 
 한국 시각 **화~토 06:04**에 실행한다(미국 월~금 정규장 마감분, 서머타임과 관계없이 같은 시각). 컴퓨터는 필요 없다(클라우드 실행).
 목표: **한국 시각 06:20 전후에 사이트·알림 발행**. 빠르게, 그러나 숫자는 정확하게.
-API 키(FINVIZ_AUTH, FRED_KEY, ONESIGNAL_KEY)는 예약 작업 프롬프트로 전달된다. **키를 파일·커밋·메시지에 절대 쓰지 않는다.**
+API 키(FINVIZ_AUTH, FRED_KEY, ONESIGNAL_KEY)는 **GitHub 비밀값**에만 있다. 예약 작업 세션은 키를 갖지 않는다. 키가 필요한 일(수집·알림)은 `.github/triggers/<일>` 파일을 푸시해 **GitHub 작업(keys-work)**에 맡긴다. 키를 파일·커밋·메시지에 절대 쓰지 않는다.
+
+**GitHub 작업 맡기는 법** (세 곳에서 쓴다):
+```
+cd /home/claude/seoks && git pull -q --rebase
+echo "<인자> $(date -u +%FT%TZ)" > .github/triggers/<일>      # 일 = collect | notify | check
+git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
+# 30초마다 상태 확인(최대 6분): gh run list -R hangseokemail-spec/seoks -L 1 --json status,conclusion
+# completed가 되면 git pull -q --rebase 로 결과를 받는다
+```
 
 ## 0. 역할 분담 — 해석·편집은 Fable, 실질적인 일은 Opus 5.5
 
@@ -19,15 +28,11 @@ API 키(FINVIZ_AUTH, FRED_KEY, ONESIGNAL_KEY)는 예약 작업 프롬프트로 �
 1. 저장소 연결: `hangseokemail-spec/seoks` (push 권한). `git clone --depth 1 https://github.com/hangseokemail-spec/seoks /home/claude/seoks`
 2. `pip install pandas numpy --break-system-packages -q` (없을 때만)
 
-## 2. 수집 (2분) — Opus
-```
-cd /home/claude/seoks
-FINVIZ_AUTH=... FRED_KEY=... python3 scripts/collect.py
-```
-- 마지막 줄 JSON의 `date`가 오늘 미국 날짜이고 `board: true`면 정상.
-- `finviz 날짜와 지수 날짜가 달라 현황판 생략`이면 5분 기다렸다 `--force-board`로 한 번만 다시 실행.
-- 미국 휴장일이면(날짜가 어제 그대로) 커밋하지 말고 "오늘은 미국 휴장" 한 줄로 끝낸다.
-- 이어서 `FINVIZ_AUTH=... FRED_KEY=... python3 scripts/analyze.py` (지표 예측력 분석 갱신, 20초 안팎).
+## 2. 수집 (2~3분) — Opus가 GitHub 작업에 맡김
+- 위 '맡기는 법'대로 `echo "run $(date -u +%FT%TZ)" > .github/triggers/collect` 를 푸시한다. GitHub 작업이 비밀값으로 `scripts/collect.py`와 이어서 `scripts/analyze.py`(지표 예측력 분석)를 돌리고 `data/`를 커밋한다.
+- 끝나면 `git pull` 후 `data/runs/collect_last.json`을 본다: `result.date`가 오늘 미국 날짜이고 `result.board: true`면 정상. `log_tail`에 진행 기록이 있다.
+- `finviz 날짜와 지수 날짜가 달라 현황판 생략`이면 5분 기다렸다 `echo "--force-board $(date -u +%FT%TZ)"`로 한 번만 다시 맡긴다.
+- 미국 휴장일이면(날짜가 어제 그대로) 더 커밋하지 말고 "오늘은 미국 휴장" 한 줄로 끝낸다.
 
 ## 3. 웹 지표 보충 (3분) — Opus → `data/manual.json`
 원칙: **매일 나오지 않는 값은 나온 날 반영하고, 그 전까지는 가장 최근 발표값을 그대로 쓴다** (화면에 기준일이 자동 표시됨).
@@ -36,7 +41,7 @@ curl로 봇 차단을 우회하지 않는다. 못 찾으면 비워 두고 넘어
 - **pc** (매일): WebFetch `https://www.cboe.com/us/options/market_statistics/daily/?dt=<날짜>` 의 TOTAL PUT/CALL RATIO.
 - **aaii** (목요일 발표): 강세%, 약세%, spread=강세−약세. date는 발표일(목).
 - **margin** (월 1회): WebFetch `https://ycharts.com/indicators/finra_margin_debt` → 최신 월이 manual.json의 마지막 월보다 새로우면 `{"month": "YYYY-MM", "value": 백만달러, "yoy": YCharts 전년비%, "src": "YCharts (FINRA 원자료)"}` 추가.
-- 바꿨으면 `python3 scripts/collect.py --no-board` 다시 실행.
+- 바꿨으면 manual.json을 커밋하면서 `echo "--no-board $(date -u +%FT%TZ)" > .github/triggers/collect` 로 다시 맡긴다(끝나면 `git pull`).
 - finviz는 요청이 많으면 일시 차단되므로 collect.py 외에 finviz를 따로 호출하지 않는다.
 
 ## 4. 웹 사실 조사 (2~3분) — Opus → `data/raw/research_<날짜>.json`
@@ -85,22 +90,20 @@ python3 scripts/check_comments.py <날짜>
 ## 8. 저장 (1분) — Opus
 ```
 python3 scripts/export_db.py      # 날짜별 기록 DB(data/db.csv) 갱신 → 구글 시트 'Seoks 날짜별 기록'이 자동으로 읽음
+git pull -q --rebase   # GitHub 작업이 먼저 올린 data를 받는다
 git add data && git commit -m "data: <날짜>" && git -c push.negotiate=true push
 ```
 (`data/raw/`는 .gitignore 대상이라 자료 묶음·사실 조사 파일은 올라가지 않는다.)
 GitHub Pages가 1분 안에 반영한다: https://hangseokemail-spec.github.io/seoks/
 
-## 9. 다른 사람들 휴대폰 알림 (OneSignal 웹 푸시) — Opus
-`ONESIGNAL_KEY`는 예약 작업 프롬프트로 전달된다. 제목·내용의 `<...>`를 채워 한 번만 보낸다.
+## 9. 다른 사람들 휴대폰 알림 (OneSignal 웹 푸시) — Opus가 GitHub 작업에 맡김
+`data/notify/latest.json`에 제목·내용을 쓰고(`<...>` 채우기), 위 '맡기는 법'대로 `echo "send $(date -u +%FT%TZ)" > .github/triggers/notify` 와 함께 **한 번만** 푸시한다.
+```json
+{"date": "<YYYY-MM-DD>", "heading": "Seoks <M/D> 마감", "contents": "풍향계 <n> <구간> · <wind.verdict>",
+ "url": "https://hangseokemail-spec.github.io/seoks/"}
 ```
-curl -sS -X POST "https://api.onesignal.com/notifications?c=push" \
-  -H "Authorization: Key $ONESIGNAL_KEY" -H "Content-Type: application/json" \
-  -d '{"app_id":"c323691f-5bf6-4942-aac1-fd6254f1b0c0","target_channel":"push","included_segments":["Total Subscriptions"],
-       "headings":{"en":"Seoks <M/D> 마감","ko":"Seoks <M/D> 마감"},
-       "contents":{"en":"풍향계 <n> <구간> · <wind.verdict>","ko":"풍향계 <n> <구간> · <wind.verdict>"},
-       "url":"https://hangseokemail-spec.github.io/seoks/"}'
-```
-- 응답에 `errors`가 있으면 재시도하지 말고 마지막 메시지에 "다른 사람 알림 발송 실패: <이유>" 한 줄을 붙인다.
+- 끝나면 `git pull` 후 `data/notify/result.json`을 본다(`status`, `id`, `errors`).
+- `errors`가 있으면 재시도하지 말고 마지막 메시지에 "다른 사람 알림 발송 실패: <이유>" 한 줄을 붙인다.
 - 구독자가 없으면 "not subscribed" 오류가 오는데, 실패가 아니니 그대로 넘어간다.
 
 ## 10. 마지막 메시지 (= 선생님 휴대폰 Claude 알림) — Opus

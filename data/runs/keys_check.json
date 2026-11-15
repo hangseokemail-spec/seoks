@@ -1,6 +1,12 @@
 {
- "checked": "2026-11-15 21:00:55 KST",
+ "checked": "2026-11-15 21:02:08 KST",
  "FINVIZ_AUTH": "ok",
  "FRED_KEY": "ok",
- "ONESIGNAL_KEY": "실패(열쇠 거부)"
+ "ONESIGNAL_KEY": "실패(열쇠 거부) (401)",
+ "onesignal_reply": "[\"Access denied.  Please include an 'Authorization: ...' header with a valid API key (https://documentation.onesignal.com/docs/en/keys-and-ids#api-keys).\"]",
+ "onesignal_key_shape": {
+  "length": 5,
+  "starts_os_v2": false,
+  "has_space_or_newline": false
+ }
 }

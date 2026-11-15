@@ -98,8 +98,8 @@ def get(url):
 
 def check():
     res = {'checked': now()}
-    s, body = get(f'https://elite.finviz.com/export.ashx?v=111&t=SPY&auth={KEYS[0]}')
-    res['FINVIZ_AUTH'] = 'ok' if s == 200 and 'Ticker' in body else f'실패 {s}' if KEYS[0] else '없음'
+    s, body = get(f'https://elite.finviz.com/quote_export.ashx?t=SPY&p=d&auth={KEYS[0]}')   # collect.py와 같은 주소
+    res['FINVIZ_AUTH'] = 'ok' if s == 200 and ('Date' in body or 'Close' in body) else f'실패 {s}' if KEYS[0] else '없음'
     s, body = get(f'https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json&limit=1&api_key={KEYS[1]}')
     res['FRED_KEY'] = 'ok' if s == 200 and 'observations' in body else f'실패 {s}' if KEYS[1] else '없음'
     if KEYS[2]:   # 아무에게도 가지 않는 대상(없는 사용자)으로 보내 열쇠만 확인한다

@@ -308,3 +308,213 @@ table.st .ds{color:var(--sub);font-size:13.5px}
 .tile .v .ob{margin-left:0}
 .tile .f{flex-wrap:wrap;gap:4px 6px}
 @media (max-width:560px){.tile .f .w{display:none}}
+
+/* ================= v4: 풍향계 탭 · 카드뉴스 · 쉬운 설명 ================= */
+.tab[data-t="wind"].on::before{background:#f5cf6a}
+.lnk{color:var(--accent);font-size:12.5px;text-decoration:underline;text-underline-offset:2px;padding:0}
+.ctitle{font-size:13.5px;color:var(--sub);font-weight:600;margin:2px 0 6px}
+.ctitle small{font-weight:400;color:var(--muted)}
+.chartbox.lg{height:300px}
+.g2e{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.dlg{font-size:12px}
+
+/* 헤더: 업데이트 시각 + 날짜 선택 */
+.stampw{display:flex;align-items:center;gap:8px;position:relative}
+.calbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--gold2);color:var(--gold);font-size:13.5px;font-weight:700;background:rgba(245,207,106,.08);white-space:nowrap}
+.calbtn svg{width:16px;height:16px}
+.calbtn.on{background:var(--gold);color:#16264a}
+#calpop .cal{top:calc(100% + 8px);left:auto;right:0}
+
+/* 지수 카드: 최근 6거래일 */
+.ich{position:relative;height:50px;margin:8px 0 0}
+.ich svg{display:block;width:100%;height:100%;overflow:visible}
+.ich-dot{position:absolute;right:-4px;width:8px;height:8px;border-radius:50%;transform:translateY(-50%);box-shadow:0 0 0 2px var(--card)}
+.ich-bl{position:absolute;left:0;transform:translateY(-110%);font-size:10.5px;color:#d5dff2;background:rgba(22,38,74,.82);border-radius:4px;padding:0 4px;white-space:nowrap;pointer-events:none}
+.ich-bl.below{transform:translateY(10%)}
+.ich-x{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:3px}
+.mini .ich{height:42px}
+
+/* 시장의 변화: 카드뉴스 */
+.mh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.mh h3{margin:0}
+.mlg{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mlg i{display:inline-block;width:10px;height:10px;border-radius:3px}
+.mlg i.g{background:var(--up)}.mlg i.r{background:var(--down)}.mlg i.n{background:#94a3b8}
+.mhead{font-size:18px;font-weight:700;margin:8px 0 2px}
+.mcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:10px}
+.mc{perspective:1000px;cursor:pointer;min-height:186px;outline:none}
+.mc .in{position:relative;width:100%;height:100%;min-height:186px;transition:transform .55s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d}
+.mc.flip .in{transform:rotateY(180deg)}
+.mc .fr,.mc .bk{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:14px;padding:14px 15px;display:flex;flex-direction:column;border:1.5px solid}
+.mc .bk{transform:rotateY(180deg);overflow:auto}
+.mc:focus-visible .fr,.mc:focus-visible .bk{box-shadow:0 0 0 3px var(--accent)}
+.mc .tg{font-size:12.5px;font-weight:700;opacity:.95;display:flex;align-items:center;gap:6px}
+.mc .tg em,.wkc .tg em{font-style:normal;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:rgba(255,255,255,.14)}
+.mc .tt{font-size:19px;font-weight:800;line-height:1.32;margin-top:8px;word-break:keep-all}
+.mc .nm{font-size:22px;font-weight:800;margin-top:auto;padding-top:8px}
+.mc .tt2{font-size:15px;font-weight:800;margin-bottom:6px;word-break:keep-all}
+.mc .bk p{margin:0;font-size:14px;line-height:1.55;color:#eef3fc;word-break:keep-all}
+.mc .hint{font-size:11px;opacity:.7;margin-top:8px}
+.mc .bk .hint{margin-top:auto;padding-top:8px}
+.t-up .fr,.t-up .bk{background:linear-gradient(160deg,#1f6a55,#164b40);border-color:#3ee0a1}
+.t-down .fr,.t-down .bk{background:linear-gradient(160deg,#6e2a3c,#4a1f2d);border-color:#ff7b8a}
+.t-flat .fr,.t-flat .bk{background:linear-gradient(160deg,#465473,#333f5a);border-color:#a3b0c8}
+.t-up .nm,.t-up .tg{color:#9ff5d3}.t-down .nm,.t-down .tg{color:#ffc0c8}.t-flat .nm,.t-flat .tg{color:#e1e7f2}
+
+/* Breadth 표 묶음 */
+table.bt tr.grp td{background:none!important;color:var(--gold);font-size:12.5px;font-weight:700;padding-top:12px;border-top:none}
+
+/* 강한·약한 산업 */
+.indg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.indb{border-radius:12px;padding:10px 12px;border:1.5px solid}
+.indb.good{background:rgba(62,224,161,.08);border-color:rgba(62,224,161,.55)}
+.indb.bad{background:rgba(255,123,138,.08);border-color:rgba(255,123,138,.55)}
+.indb .ih{font-weight:800;font-size:15px;margin-bottom:4px}
+.indb.good .ih{color:var(--up)}.indb.bad .ih{color:var(--down)}
+.ir{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:7px 0;border-top:1px solid rgba(255,255,255,.08)}
+.ir:first-of-type{border-top:none}
+.inm b{display:block;font-size:15.5px;word-break:keep-all}
+.inm span{font-size:11.5px;color:var(--muted)}
+.ibar{height:9px;background:rgba(255,255,255,.07);border-radius:5px;overflow:hidden}
+.ibar i{display:block;height:100%;border-radius:5px}
+.iv{font-weight:800;font-size:16px;text-align:right;min-width:62px}
+.itk{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.itk span{font-size:11.5px;background:rgba(0,0,0,.18);border-radius:6px;padding:1px 6px;color:var(--sub)}
+.itk em{font-style:normal}
+
+/* 신고가 티커 목록 */
+.tkr{display:flex;flex-wrap:wrap;gap:5px;max-height:220px;overflow:auto}
+.tkr span{font-size:12.5px;background:var(--card2);border:1px solid var(--line);border-radius:7px;padding:2px 7px;font-variant-numeric:tabular-nums}
+.tkr span.sp{font-weight:800;border-color:var(--line2);background:#2c4a82}
+.tkr em{font-style:normal;margin-left:4px;font-size:11.5px}
+
+/* 대표 신고가 9 */
+.g3f{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.fsp{display:flex;align-items:center;gap:10px;padding:6px 14px 0;font-size:12px;color:var(--muted)}
+.fsp .spark{flex:1;height:34px;margin:0}
+.fsp span{white-space:nowrap}
+.fsp b{font-size:13px}
+
+/* 정렬 표 */
+th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable i{font-style:normal;margin-left:3px;opacity:.55;font-size:10px}
+th.sortable.on{color:var(--gold)}
+th.sortable.on i{opacity:1}
+
+/* 번호 코멘트 */
+.pts ol{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.pts li{display:flex;gap:12px;align-items:flex-start;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+.pts .no{flex:none;width:28px;height:28px;border-radius:50%;background:var(--gold);color:#16264a;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px}
+.pts.tc .no{background:var(--tc4)}.pts.lq .no{background:var(--lq5)}
+.pts li b{display:block;font-size:16.5px;margin-bottom:2px;word-break:keep-all}
+.pts li p{margin:0;font-size:15px;color:#e2e9f7;line-height:1.6;word-break:keep-all}
+.pts.tc h3{color:var(--tc4)}.pts.lq h3{color:var(--lq4)}
+.opinion{margin-top:12px;padding:11px 13px;border-radius:10px;background:#22396a;border:1px solid var(--line2);font-size:15px;line-height:1.55;word-break:keep-all}
+.opinion b{display:block;color:var(--gold);font-size:13px;margin-bottom:3px}
+.opinion.tc b{color:var(--tc4)}.opinion.lq b{color:var(--lq4)}
+
+/* 사분면 */
+.qlg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--sub);margin-top:4px}
+.qlg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+.qlg .arr{color:var(--gold)}
+.qc{line-height:1.6;word-break:keep-all}
+.qc b{display:block;margin:0 0 2px}
+
+/* 유동성 카테고리 */
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.cat{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:5px}
+.cat .ctop{display:flex;justify-content:space-between;align-items:baseline}
+.cat .cn{font-weight:800;font-size:16px;color:var(--lq4)}
+.cat .cw{font-size:11.5px;color:var(--muted)}
+.cat .cq{font-size:13.5px;color:var(--sub)}
+.cat .cvl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cat .cs{font-size:28px;font-weight:800;line-height:1}
+.cat .ca{font-size:14px;font-weight:600;word-break:keep-all}
+.cat .cbar{position:relative;display:flex;height:7px;border-radius:4px;overflow:visible;margin:4px 0 2px}
+.cat .cbar i{flex:1}
+.cat .cbar i:first-child{border-radius:4px 0 0 4px}.cat .cbar i:last-of-type{border-radius:0 4px 4px 0}
+.cat .cbar b{position:absolute;top:-4px;width:4px;height:15px;background:#fff;border-radius:2px;transform:translateX(-2px);box-shadow:0 0 0 1px #16264a}
+.cat .cm{font-size:11.5px;color:var(--muted)}
+
+/* 지수 상관 요약 숫자 */
+.cstat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.cstat .cs{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);text-align:left}
+.cstat .cs.on{border-color:var(--gold2);background:#2c4a82}
+.cstat .cs span{font-size:12px;color:var(--sub)}
+.cstat .cs b{font-size:26px;font-weight:800;line-height:1.1}
+.cstat .cs em{font-style:normal;font-size:12.5px;color:var(--sub)}
+
+/* 풍향계 탭 */
+.wcard .gauge{display:block;max-width:420px;margin:2px auto 0}
+.wnow{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:-6px}
+.wnow .big{font-size:60px}
+.wact{font-size:16px;margin-top:5px}
+.wact b{font-size:19px}
+.whead{margin-top:12px;padding:12px 14px;border-radius:10px;background:#22396a;border:1px solid var(--gold2);font-size:16.5px;font-weight:700;line-height:1.5;word-break:keep-all}
+.wparts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.wp{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.wpn{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);font-weight:600}
+.wpn span{font-size:18px;color:var(--text);font-weight:800}
+.wpb{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:5px 0 4px}
+.wpb i{display:block;height:100%;border-radius:4px}
+.wpt{font-size:11.5px;color:var(--muted)}
+.wk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.wkc{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:13px 14px;border-radius:14px;border:1.5px solid;min-height:132px}
+.wkc .tg{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+.wkc b{font-size:22px;font-weight:800;line-height:1.25;word-break:keep-all}
+.wkc .sb{font-size:13.5px;color:#e6edf9;line-height:1.45;word-break:keep-all}
+.wkc .more{margin-top:auto;font-size:12px;opacity:.75}
+.wkc.t-up{background:linear-gradient(160deg,#1f6a55,#164b40);border-color:#3ee0a1}
+.wkc.t-down{background:linear-gradient(160deg,#6e2a3c,#4a1f2d);border-color:#ff7b8a}
+.wkc.t-flat{background:linear-gradient(160deg,#465473,#333f5a);border-color:#a3b0c8}
+.wkc.t-up .tg{color:#9ff5d3}.wkc.t-down .tg{color:#ffc0c8}.wkc.t-flat .tg{color:#e1e7f2}
+.wkc:hover{filter:brightness(1.08)}
+table.zt td{vertical-align:middle}
+table.zt .sw,.mbox .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+table.zt tr.cur td{background:#2c4a82;font-weight:700}
+table.zt tr.tot td{color:var(--sub)}
+
+@media (max-width:1180px){.wk{grid-template-columns:repeat(2,minmax(0,1fr))}.g3f{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:980px){.g2e{grid-template-columns:minmax(0,1fr)}.chartbox.lg{height:270px}}
+@media (max-width:760px){
+  .stampw{order:6;flex-basis:100%;justify-content:space-between}
+  .hdr .stamp{order:0;flex-basis:auto}
+  #calpop .cal{position:fixed;left:50%;right:auto;top:120px;transform:translateX(-50%);width:min(330px,92vw)}
+  .indg{grid-template-columns:minmax(0,1fr)}
+  .mcards{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .mc,.mc .in{min-height:176px}
+  .mc .tt{font-size:16.5px}.mc .nm{font-size:19px}
+  .mhead{font-size:16px}
+  .mlg{margin-left:0;flex-basis:100%}
+  .cstat .cs b{font-size:21px}
+  .wnow .big{font-size:50px}
+  .whead{font-size:15px}
+  .wkc b{font-size:19px}
+  .chartbox.lg{height:250px}
+}
+@media (max-width:560px){
+  .g3f{grid-template-columns:minmax(0,1fr)}
+  .cats{grid-template-columns:minmax(0,1fr)}
+  .mcards{grid-template-columns:minmax(0,1fr)}
+  .mc,.mc .in{min-height:150px}
+  .wk{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .wkc{min-height:120px;padding:11px 12px}
+  .wkc b{font-size:17px}.wkc .sb{font-size:12.5px}
+  .cstat{gap:6px}.cstat .cs{padding:8px 9px}.cstat .cs b{font-size:19px}.cstat .cs em{font-size:11px}
+  .pts li{padding:10px 11px;gap:10px}.pts li b{font-size:15.5px}.pts li p{font-size:14px}
+  .wparts{grid-template-columns:minmax(0,1fr)}
+  .ir{grid-template-columns:minmax(0,1fr) auto}.ibar{grid-column:1/-1;grid-row:2}
+  .ich-bl{font-size:10px}
+  .calbtn{padding:5px 10px;font-size:13px}
+}
+@media (orientation:landscape) and (max-height:500px){.chartbox.lg{height:230px}.wnow .big{font-size:46px}}
+.ih + .ir{border-top:none}
+.wnow{margin-top:6px}
+.quad .mh{justify-content:space-between}
+@media (max-width:560px){
+  .mcards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mc,.mc .in{min-height:168px}
+  .mc .fr,.mc .bk{padding:11px 11px}
+  .mc .tt{font-size:15px}.mc .nm{font-size:16.5px}.mc .tg{font-size:11px}
+  .mc .bk p{font-size:12.5px;line-height:1.5}.mc .tt2{font-size:13.5px}
+}

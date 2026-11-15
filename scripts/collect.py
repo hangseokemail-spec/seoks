@@ -472,11 +472,15 @@ def build_board(date, df):
         if c is None or not m or r["Industry"] in ("Exchange Traded Fund", "Shell Companies"):
             continue
         for key2, store in ((SECTOR_KO.get(r["Sector"], r["Sector"]), agg), (r["Industry"], iagg)):
-            a = store.setdefault(key2, {"w": 0.0, "wc": 0.0, "n": 0, "up": 0, "sec": SECTOR_KO.get(r["Sector"], r["Sector"])})
+            a = store.setdefault(key2, {"w": 0.0, "wc": 0.0, "n": 0, "up": 0, "sec": SECTOR_KO.get(r["Sector"], r["Sector"]), "mem": []})
             a["w"] += m; a["wc"] += m * c; a["n"] += 1; a["up"] += c > 0
+            if store is iagg:
+                a["mem"].append((m, r["Ticker"], c))
     sector_perf = sorted([{"name": k, "chg": rnd(v["wc"] / v["w"], 2), "up_pct": rnd(v["up"] / v["n"] * 100, 0), "n": v["n"]}
                           for k, v in agg.items() if v["n"] >= 20], key=lambda x: -x["chg"])
-    inds = [{"name": k, "sector": v["sec"], "chg": rnd(v["wc"] / v["w"], 2), "n": v["n"]} for k, v in iagg.items() if v["n"] >= 8 and v["w"] >= 50000]
+    inds = [{"name": k, "sector": v["sec"], "chg": rnd(v["wc"] / v["w"], 2), "n": v["n"],
+             "tops": [{"t": t, "chg": rnd(c, 2)} for _, t, c in sorted(v["mem"], reverse=True)[:3]]}
+            for k, v in iagg.items() if v["n"] >= 8 and v["w"] >= 50000]
     inds.sort(key=lambda x: -x["chg"])
     # 강세주·약세주: S&P500 안에서
     sp_rows = [r for r in allrows if r["Ticker"] in spset and fnum(r["Change"]) is not None]
@@ -505,8 +509,17 @@ def build_board(date, df):
     for r in top:
         sec[r["sector"]] = sec.get(r["sector"], 0) + 1
     sectors = [{"name": k, "count": v, "pct": rnd(v / len(top) * 100, 1)} for k, v in sorted(sec.items(), key=lambda x: -x[1])]
-    # 대표 신고가: S&P500 구성종목만, 당일 상승률 순 최대 8개
-    feats = sorted([r for r in clean if r["sp"]], key=lambda r: -(r["chg"] or -99))[:8]
+    # 대표 신고가: S&P500 구성종목만, 당일 상승률 순 최대 9개 + 최근 3개월 종가
+    feats = sorted([r for r in clean if r["sp"]], key=lambda r: -(r["chg"] or -99))[:9]
+    for f in feats:
+        try:
+            q = finviz_quote(f["t"]).loc[:date]
+            f["spark"] = [rnd(x, 2) for x in q["Close"].iloc[-63:].values]
+            f["spark_from"] = f"{q.index[-min(63, len(q))]:%Y-%m-%d}"
+        except Exception as e:  # 차트가 없어도 카드는 보여줌
+            print(f"  ! {f['t']} 3개월 차트 실패: {e}")
+        time.sleep(0.6)
+    nh_list = [{"t": r["t"], "chg": r["chg"], "sp": r["sp"]} for r in clean]
     intraday = {"ndx": finviz_intraday("QQQ", date), "spx": finviz_intraday("SPY", date),
                 "dji": finviz_intraday("DIA", date), "kospi": naver_kospi_intraday(date)}
 
@@ -526,7 +539,7 @@ def build_board(date, df):
                     "us10y": {"close": rnd(y.iloc[-1], 2), "chg_bp": rnd((y.iloc[-1] - y.iloc[-2]) * 100, 0),
                               "spark": [rnd(x, 2) for x in y.iloc[-6:].values], "obs_note": "FRED DGS10, 전일 기준"}},
         "breadth": breadth, "prev": prev, "nh_total": len(nh), "excluded": excl,
-        "top40": top, "sectors": sectors, "features": feats, "nh_sp500": sum(1 for r in clean if r["sp"]),
+        "top40": top, "sectors": sectors, "features": feats, "nh_sp500": sum(1 for r in clean if r["sp"]), "nh_list": nh_list,
         "sector_perf": sector_perf, "ind_top": inds[:5], "ind_bottom": inds[-5:][::-1],
         "gainers": gainers, "losers": losers, "mega": mega, "intraday": intraday,
         "tc": rnd(row["tc"], 1), "lq": rnd(row["lq"], 1),
@@ -561,6 +574,9 @@ def main():
 
     jsave(os.path.join(DATA, "series.json"), series_json(df))
     jsave(os.path.join(DATA, "corr.json"), build_corr(df))
+    import wind  # 같은 폴더의 scripts/wind.py
+    wnow = wind.build()
+    print("풍향계", json.dumps(wnow, ensure_ascii=False))
     boards = sorted(f[:-5] for f in os.listdir(os.path.join(DATA, "board"))) if os.path.isdir(os.path.join(DATA, "board")) else []
     asof_map = {k: (v.iloc[-1].strftime("%Y-%m-%d") if pd.notna(v.iloc[-1]) else None) for k, v in obs.items()}
     jsave(os.path.join(DATA, "latest.json"), {

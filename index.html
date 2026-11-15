@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Seoks 증시현황판</title>
-<meta name="description" content="미국 증시 현황, 트랜드캐치, 유동성을 매일 아침 정리하는 Seoks 현황판">
+<meta name="description" content="증시 풍향계, 미국 증시 현황, 트렌드캐치, 유동성을 매일 아침 정리하는 Seoks 현황판">
 <meta name="theme-color" content="#081122">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="assets/icon-192.png">
@@ -31,14 +31,17 @@
   <header class="hdr">
     <div class="brand">Seoks</div>
     <h1 id="title">불러오는 중…</h1>
-    <div class="stamp" id="stamp"></div>
+    <div class="stampw"><div class="stamp" id="stamp"></div>
+      <button class="calbtn" id="calbtn" aria-label="날짜 선택"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>날짜 선택</button>
+      <div id="calpop"></div></div>
     <button class="pushsw" id="pushbtn" role="switch" aria-checked="false" aria-label="알림 켜기/끄기" hidden><span class="lb">알림</span><span class="sw"><i></i></span></button>
     <button class="bell" id="bell" aria-label="새 소식"><svg viewBox="0 0 24 24" fill="none" stroke="#f5cf6a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="cnt" id="bellcnt" hidden></span></button>
     <div class="newsp" id="newsp" hidden></div>
   </header>
   <nav class="tabs" role="tablist">
+    <button class="tab" data-t="wind" role="tab">증시 풍향계</button>
     <button class="tab" data-t="board" role="tab">증시현황판</button>
-    <button class="tab" data-t="tc" role="tab">트랜드캐치</button>
+    <button class="tab" data-t="tc" role="tab">트렌드캐치</button>
     <button class="tab" data-t="lq" role="tab">유동성</button>
   </nav>
   <section class="sheet">

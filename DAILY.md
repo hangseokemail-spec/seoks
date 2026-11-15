@@ -28,19 +28,29 @@ curl로 봇 차단을 우회하지 않는다. 못 찾으면 비워 두고 넘어
 - 바꿨으면 `python3 scripts/collect.py --no-board` 다시 실행.
 - finviz는 요청이 많으면 일시 차단되므로 collect.py 외에 finviz를 따로 호출하지 않는다.
 
-## 4. 코멘트 (5분) → `data/comments/<날짜>.json`
-형식은 `data/comments/2026-11-13.json`과 같다. 한국어, 짧게, 숫자로. **확인 안 된 내용은 쓰지 않는다.**
-- `market.headline` (= `oneliner`에도 같은 값): 45자 안팎. "무슨 일 · 핵심 숫자" 형식.
-- `market.news`: 그날 가장 이슈가 된 기사·사건 1~2개. 그날 날짜의 기사를 웹검색으로 확인한 것만 쓴다.
-  - 개별 종목 급등락의 원인을 기사로 확인하지 못했으면 원인을 짐작하지 말고 숫자만 쓴다.
-- `market.leaders`: `data/board/<날짜>.json`의 `sector_perf`(섹터 시총가중 등락), `gainers`·`losers`(S&P500), `mega`(시총 상위)로 주도 섹터와 강한 기업을 한 줄로 정리한다. 이 숫자들은 그대로 옮긴다.
-- `tc`, `lq`: 2~3문장. 어떤 지표가 점수를 올리고 내리는지, 빠진 지표가 있으면 그 사실.
-- `quad`: 1~2문장. 사분면 위치와 다음에 볼 것.
-- `features`: board의 `features`(S&P500 신고가, 최대 8개) 각각 `tag`(10자 안팎), `bm`, `e1`, `e2`(최근 실적·신고가 배경), `point`, `caution`.
+## 4. 코멘트 (5~7분) → `data/comments/<날짜>.json`
+형식은 `data/comments/2026-11-13.json`과 같다. 한국어, 초보자도 이해하게, 숫자로. **확인 안 된 내용은 쓰지 않는다.**
+풍향계 값은 collect.py 마지막 출력의 `풍향계 {"wind":.., "zone":..}`와 `data/wind.json`에서 읽는다 (계산식: 65 − 15×트렌드캐치 + 10×유동성).
+- `wind.headline`: 풍향계 점수·구간·한 줄 판단 (60자 안팎). 새 소식·알림에 쓰인다.
+- `wind.points`: 3개 `{h, t}`. h = 한 줄 핵심(20자 안팎), t = 2~3문장 근거.
+  ① 지금 구간과 1주 전 대비 변화 ② 시장 속(Breadth·섹터)이 말하는 것 ③ 앞으로 볼 것(어떤 숫자가 어떻게 되면 순풍/역풍으로 바뀌는지).
+- `market.headline` (= `oneliner`에도 같은 값): 45자 안팎. "무슨 일 · 핵심 숫자".
+- `market.cards`: 카드뉴스 4~5장 `{tone, tag, title, num, back}`.
+  - tone: `up`(좋은 소식, 초록) / `down`(나쁜 소식, 빨강) / `flat`(애매·엇갈림, 회색). 주식시장에 좋은지 나쁜지 기준으로 일관되게.
+  - tag 8자 안팎, title 20자 안팎(앞면 큰 글씨), num = 핵심 숫자 하나, back = 뒷면 2~3문장(숫자·확인된 사실).
+  - 보통 구성: 그날 가장 큰 변화(업종·종목) / 강한 쪽 / 시장 체력(신고가·신저가·200일선) / 지수 흐름 / 심리·유동성.
+  - 뉴스는 그날 날짜 기사를 웹검색으로 확인한 것만. 개별 종목 급등락 원인을 확인 못 했으면 짐작하지 말고 "원인은 확인된 보도가 없어 적지 않음".
+- `market.news`, `market.leaders`: 예전 형식(없어도 됨, 있으면 유지).
+- `tc_summary`, `lq_summary`: 종합 카드 아래 '종합의견' 1~2문장. 점수·라벨·무엇이 올리고 내리는지.
+- `tc_points`, `lq_points`: 3개 `{h, t}`. ① 무엇을 알 수 있나 ② 왜 봐야 하나(근거 숫자, analysis.json의 순위상관 등) ③ 무엇을 할까/조심할까(어떤 점수·숫자가 되면 무엇을 검토하는지 기준 제시).
+  판단 보조로 쓰되 단정적인 매수·매도 지시는 피한다 ("~을 검토할 때", "~을 줄이는 편이 낫다").
+- `tc`, `lq`: 예전 형식 2~3문장(풍향계 카드 fallback용, 유지).
+- `quad`: 사분면 판단 보조 2~3문장. 보이는 움직임을 다시 묘사하지 말고, 지금 칸이 행동으로 무엇을 뜻하는지와 어느 선을 넘으면 무엇을 검토할지.
+- `features`: board의 `features`(S&P500 신고가, 최대 9개) 각각 `tag`(10자 안팎), `bm`, `e1`, `e2`(최근 실적·신고가 배경), `point`, `caution`.
   - 실적은 최근 분기 공시·보도자료를 웹검색으로 확인한다. 여러 종목 검색은 한 번에 병렬로.
-  - 당일 상승의 원인을 단정하지 않는다. 투자 권유 표현(사라/팔아라)을 쓰지 않는다.
+  - 당일 상승의 원인을 단정하지 않는다.
 - `data/notes/companies.json`: board의 `top40`·`gainers`·`losers`·`mega`·`features` 종목 중 `desc`가 없는 종목에 한 줄 설명(20자 안팎, 무슨 회사인지)을 추가한다.
-  - 확실히 아는 회사만 직접 쓰고, 모르면 finviz 업종(`ind`)과 국가를 우리말로 옮겨 쓴다 (예: "미국 지역은행"). 지어내지 않는다.
+  - 확실히 아는 회사만 직접 쓰고, 모르면 업종(`ind`)과 국가를 우리말로 옮겨 쓴다 (예: "미국 지역은행"). 지어내지 않는다.
 
 ## 5. 저장 (1분)
 ```
@@ -55,7 +65,7 @@ curl -sS -X POST "https://api.onesignal.com/notifications?c=push" \
   -H "Authorization: Key $ONESIGNAL_KEY" -H "Content-Type: application/json" \
   -d '{"app_id":"c323691f-5bf6-4942-aac1-fd6254f1b0c0","target_channel":"push","included_segments":["Total Subscriptions"],
        "headings":{"en":"Seoks <M/D> 마감","ko":"Seoks <M/D> 마감"},
-       "contents":{"en":"<market.headline>","ko":"<market.headline>"},
+       "contents":{"en":"<wind.headline>","ko":"<wind.headline>"},
        "url":"https://hangseokemail-spec.github.io/seoks/"}'
 ```
 - 응답에 `errors`가 있으면 재시도하지 말고 마지막 메시지에 "다른 사람 알림 발송 실패: <이유>" 한 줄을 붙인다.
@@ -63,8 +73,8 @@ curl -sS -X POST "https://api.onesignal.com/notifications?c=push" \
 ## 7. 마지막 메시지 (= 선생님 휴대폰 Claude 알림)
 300자 이내, 이 형식 그대로:
 ```
-Seoks <M/D> 마감 | S&P <±x.xx%> 나스닥 <±x.xx%> | 신고가 <n> · 신저가 <n> | 트랜드캐치 <x.x> <판단> · 유동성 <x.x> <판단>
-<market.headline>
+Seoks <M/D> 마감 | 풍향계 <n> <구간> | S&P <±x.xx%> 나스닥 <±x.xx%> | 트렌드캐치 <x.x> <판단> · 유동성 <x.x> <판단>
+<wind.headline>
 https://hangseokemail-spec.github.io/seoks/
 ```
 문제가 있었으면(지표 누락, 재시도, 알림 실패 등) 한 줄 덧붙인다.

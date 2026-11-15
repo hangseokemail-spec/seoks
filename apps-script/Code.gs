@@ -38,7 +38,7 @@ function labelTC_(x) { return x == null ? '' : x >= 4.5 ? '광기' : x >= 3.5 ? 
 function labelLQ_(x) { return x == null ? '' : x >= 4.5 ? '풍부' : x >= 3.5 ? '우호' : x >= 2.5 ? '중립' : x >= 1.5 ? '긴축' : '경색'; }
 
 const COLS = [['spx','S&P500'],['ixic','나스닥종합'],['dji','다우'],['ndx','나스닥100'],['kospi','코스피'],['vix','VIX'],['dxy','달러인덱스'],['us10y','미10년물'],
-  ['tc','트랜드캐치'],['#tc','트랜드캐치 판단'],['tc_n','트랜드캐치 지표수'],['lq','유동성'],['#lq','유동성 판단'],
+  ['tc','트렌드캐치'],['#tc','트렌드캐치 판단'],['tc_n','트렌드캐치 지표수'],['lq','유동성'],['#lq','유동성 판단'],
   ['tc_fg','F&G'],['s_tc_fg','F&G 점수'],['tc_aaii','AAII 스프레드'],['s_tc_aaii','AAII 점수'],['tc_vix','VIX 값'],['s_tc_vix','VIX 점수'],
   ['tc_hy','하이일드%'],['s_tc_hy','하이일드 점수'],['tc_pc','풋콜'],['s_tc_pc','풋콜 점수'],['tc_margin','신용융자 YoY%'],['s_tc_margin','신용융자 점수'],
   ['tc_a200','S&P500 200일선 위%'],['s_tc_a200','200일선 점수'],['tc_rsi','RSI14'],['s_tc_rsi','RSI 점수'],['tc_dev','200일 이격도%'],['s_tc_dev','이격도 점수'],
@@ -64,7 +64,7 @@ function writeSeries_(s) {
 
 function writeBoard_(b, cm) {
   const sh = SpreadsheetApp.getActive().getSheetByName('현황판');
-  if (sh.getLastRow() === 0) sh.appendRow(['날짜', '상승', '하락', '신고가', '신저가', '50일선 위%', '200일선 위%', 'S&P500 200일선 위%', '트랜드캐치', '유동성', '대표 신고가', '한 줄 해석']);
+  if (sh.getLastRow() === 0) sh.appendRow(['날짜', '상승', '하락', '신고가', '신저가', '50일선 위%', '200일선 위%', 'S&P500 200일선 위%', '트렌드캐치', '유동성', '대표 신고가', '한 줄 해석']);
   const dates = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues().map(function (r) { return r[0]; }) : [];
   if (dates.indexOf(b.date) >= 0) return;
   const br = b.breadth;
@@ -84,12 +84,12 @@ function sendMail_(d, s, b, cm) {
   const i = s.dates.indexOf(d), c = s.cols;
   const pct = function (k) { const a = c[k][i], p = c[k][i - 1]; return (a && p) ? ((a / p - 1) * 100).toFixed(2) + '%' : '—'; };
   const tc = c.tc[i], lq = c.lq[i];
-  const subject = 'Seoks | ' + d.slice(5).replace('-', '/') + ' 마감 · 트랜드캐치 ' + tc + ' ' + labelTC_(tc) + ' · 유동성 ' + lq + ' ' + labelLQ_(lq);
+  const subject = 'Seoks | ' + d.slice(5).replace('-', '/') + ' 마감 · 트렌드캐치 ' + tc + ' ' + labelTC_(tc) + ' · 유동성 ' + lq + ' ' + labelLQ_(lq);
   let html = '<div style="font-family:sans-serif;max-width:560px">'
     + '<h2 style="color:#c9a54a;margin:0">Seoks</h2><p style="margin:4px 0 12px">' + d + ' 미국 증시 마감</p>'
     + '<p>S&amp;P500 ' + pct('spx') + ' · 나스닥 ' + pct('ixic') + ' · 다우 ' + pct('dji') + '</p>';
   if (b) html += '<p>상승 ' + b.breadth.adv + ' / 하락 ' + b.breadth.dec + ' · 신고가 ' + b.breadth.nh + ' / 신저가 ' + b.breadth.nl + '</p>';
-  html += '<p><b>트랜드캐치</b> ' + tc + ' ' + labelTC_(tc) + ' · <b>유동성</b> ' + lq + ' ' + labelLQ_(lq) + '</p>';
+  html += '<p><b>트렌드캐치</b> ' + tc + ' ' + labelTC_(tc) + ' · <b>유동성</b> ' + lq + ' ' + labelLQ_(lq) + '</p>';
   if (cm && cm.oneliner) html += '<p style="border-left:3px solid #c9a54a;padding-left:8px"><b>' + cm.oneliner + '</b></p>';
   html += '<p><a href="' + BASE + '">현황판 열기</a></p><p style="color:#888;font-size:12px">참고 자료이며 투자 권유가 아닙니다.</p></div>';
   MailApp.sendEmail({ to: Session.getActiveUser().getEmail(), bcc: list.join(','), subject: subject, htmlBody: html });

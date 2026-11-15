@@ -89,7 +89,7 @@ window.META = (function () {
       up: "인상(점수↓) → 대출비용 증가, 밸류에이션 축소.", down: "인하(점수↑) → 대출비용 감소, 위험자산 선호.",
       src: FRED("EFFR"), freq: "매일" },
     { key: "hy", cat: "B", w: 8.75, name: "하이일드 스프레드", short: "HY", unit: "%", dec: 2,
-      desc: "투기등급 회사채와 국채의 금리 차이입니다. 트랜드캐치와 같은 값을 씁니다.",
+      desc: "투기등급 회사채와 국채의 금리 차이입니다. 트렌드캐치와 같은 값을 씁니다.",
       formula: "ICE BofA US High Yield 옵션조정 스프레드",
       bins: [["3% 이하", 5], ["3 ~ 4%", 4], ["4 ~ 5%", 3], ["5 ~ 7%", 2], ["7% 초과", 1]],
       up: "축소 → 자금 풍부.", down: "확대 → 자금경색, 주가 하락에 선행.",
@@ -102,7 +102,7 @@ window.META = (function () {
       up: "달러 강세(점수↓) → 글로벌 유동성 긴축, 신흥국·한국 증시 부담.", down: "달러 약세(점수↑) → 글로벌 유동성 완화, 위험자산 호재.",
       src: { name: "네이버 증권 (ICE DXY)", url: "https://m.stock.naver.com/worldstock/index/.DXY/total" }, freq: "매일" },
     { key: "margin", cat: "C", w: 10, name: "신용융자 YoY", short: "빚투", unit: "%", dec: 1,
-      desc: "증권사 고객 신용융자 잔고의 1년 증가율입니다. 트랜드캐치와 같은 값을 씁니다.",
+      desc: "증권사 고객 신용융자 잔고의 1년 증가율입니다. 트렌드캐치와 같은 값을 씁니다.",
       formula: "(이번 달 잔고 ÷ 12개월 전 잔고 − 1) × 100",
       bins: [["40% 초과", 5], ["20 ~ 40%", 4], ["−20 ~ 20%", 3], ["−30 ~ −20%", 2], ["−30% 미만", 1]],
       up: "빚투 증가 → 유동성 활용 확대(과열 시 위험).", down: "빚투 감소 → 디레버리징.",
@@ -135,21 +135,83 @@ window.META = (function () {
   ];
 
   const LQ_CATS = { A: "유동성의 양 (35%)", B: "유동성의 가격 (25%)", C: "유동성의 활용 (20%)", D: "유동성의 결과 (20%)" };
+  // 카테고리를 쉬운 말로: 질문 · 점수가 높을 때 / 낮을 때
+  const LQ_CAT_EASY = {
+    A: { name: "돈의 양", q: "시중에 풀린 돈이 늘고 있나?", hi: "돈이 늘고 있어요", lo: "돈이 줄고 있어요", mid: "늘지도 줄지도 않았어요", members: "연준 총자산 · 순유동성 · M2 통화량" },
+    B: { name: "돈의 값", q: "돈을 빌리는 비용이 싸졌나?", hi: "금리·달러 부담이 적어요", lo: "금리·달러가 부담이에요", mid: "싸지도 비싸지도 않아요", members: "기준금리 변화 · 하이일드 스프레드 · 달러인덱스" },
+    C: { name: "돈의 쓰임", q: "사람들과 은행이 돈을 빌려 쓰고 있나?", hi: "대출·빚투가 늘고 있어요", lo: "대출·투자가 움츠러들었어요", mid: "대출·투자가 보통 수준이에요", members: "신용융자 · 상업은행 신용" },
+    D: { name: "돈의 흐름", q: "금융시장에 돈이 잘 돌고 있나?", hi: "자금 흐름이 원활해요", lo: "금융 여건이 빡빡해요", mid: "자금 흐름이 보통이에요", members: "거래량 · 금융여건지수 · 10년물 금리" },
+  };
+  const EASY5 = { 5: "매우 넉넉", 4: "넉넉한 편", 3: "보통", 2: "빠듯한 편", 1: "매우 빠듯" };
 
-  const board = {
-    adv: { name: "상승 종목 수", desc: "finviz에 상장된 미국 주식(ETF 제외) 중 당일 상승 마감한 종목 수입니다.", formula: "finviz 스크리너 전체 종목 중 등락률 > 0" },
-    dec: { name: "하락 종목 수", desc: "당일 하락 마감한 종목 수입니다. 상승보다 많으면 지수와 별개로 시장 내부가 약하다는 뜻입니다.", formula: "finviz 스크리너 전체 종목 중 등락률 < 0" },
-    nh: { name: "52주 신고가", desc: "당일 장중에 최근 52주 최고가를 새로 쓴 종목 수입니다.", formula: "finviz 필터 'New High (52W)'" },
-    nl: { name: "52주 신저가", desc: "당일 장중에 최근 52주 최저가를 새로 쓴 종목 수입니다. 신고가보다 많으면 약세 신호입니다.", formula: "finviz 필터 'New Low (52W)'" },
-    above50: { name: "50일선 위 비율", desc: "전체 종목 중 주가가 50일 이동평균 위에 있는 비율입니다. 단기 시장 폭입니다.", formula: "50일선 위 종목 수 ÷ 전체 종목 수 × 100" },
-    above200: { name: "200일선 위 비율", desc: "전체 종목 중 주가가 200일 이동평균 위에 있는 비율입니다. 장기 시장 폭입니다.", formula: "200일선 위 종목 수 ÷ 전체 종목 수 × 100" },
-    sp500_above200: { name: "S&P500 200일선 위 비율", desc: "S&P500 구성종목만 따로 본 200일선 위 비율입니다. 트랜드캐치 지표로도 씁니다.", formula: "S&P500 중 200일선 위 종목 수 ÷ 503 × 100" },
-    sectors: { name: "섹터 강도", desc: "finviz 전체 종목(ETF·SPAC 제외)을 섹터별로 묶어 시가총액 가중 평균 등락률을 낸 것입니다. 큰 회사의 움직임이 더 크게 반영됩니다. 괄호 안은 그 섹터에서 상승한 종목 비율입니다.", formula: "섹터 등락률 = Σ(종목 시총 × 등락률) ÷ Σ 종목 시총. 종목 20개 이상인 섹터만." },
-    gainers: { name: "강세주 · 약세주", desc: "S&P500 구성종목 중 당일 등락률 상위 10개와 하위 5개, 시가총액 상위 10개 종목의 등락, 시총 가중 기준으로 가장 강했던·약했던 산업입니다.", formula: "산업 강도 = 산업 내 시총 가중 등락률 (종목 8개 이상, 산업 시총 500억 달러 이상). 회사 설명은 Claude가 작성하고, 없으면 finviz 업종명을 씁니다." },
-    top40: { name: "신고가 TOP40 업종 분포", desc: "당일 52주 신고가 종목 중 특수증권을 빼고 시가총액 상위 40개(40개 미만이면 전부)를 업종별로 나눈 것입니다.", formula: "제외: 우선주(회사명에 PRF/PERPETUAL), SPAC(업종 Shell Companies), ETF, 같은 회사의 다른 주식. 업종은 finviz 분류." },
-    features: { name: "대표 신고가 (S&P500)", desc: "당일 52주 신고가 종목 중 S&P500 구성종목만 골라 당일 상승률 순으로 최대 8개를 보여줍니다. S&P500 신고가가 8개보다 적은 날은 그 수만큼만 나옵니다.", formula: "BM·실적·포인트·주의는 매일 아침 Claude가 기업 공시와 뉴스를 확인해 작성합니다. 당일 상승의 단일 원인으로 단정하지 않습니다." },
-    index: { name: "주요 지수", desc: "미국 정규장 종가와 전일 대비 등락률입니다. 차트는 그날 장중 흐름입니다. finviz는 지수 자체를 내보내지 않아, 지수를 그대로 따라가는 ETF(S&P500=SPY, 나스닥=QQQ, 다우=DIA)의 5분봉을 지수 전일 종가 기준으로 환산했습니다. 점선은 전일 종가입니다.", formula: "종가·등락률: 네이버 증권 해외지수(공식 종가). 장중 흐름: finviz Elite ETF 5분봉. 코스피는 네이버 분봉. VIX·달러인덱스·10년물은 장중 자료가 없어 최근 6거래일 추이. 10년물은 FRED DGS10(하루 늦게 공개)." },
+  // finviz 산업 분류 → 한글
+  const IND_KO = {
+    "Agricultural Inputs": "비료·농자재", "Aluminum": "알루미늄", "Building Materials": "건축자재", "Chemicals": "화학", "Coking Coal": "제철용 석탄",
+    "Copper": "구리", "Gold": "금광", "Lumber & Wood Production": "목재", "Other Industrial Metals & Mining": "산업용 금속·광업",
+    "Other Precious Metals & Mining": "귀금속·광업", "Paper & Paper Products": "제지", "Silver": "은광", "Specialty Chemicals": "특수화학", "Steel": "철강",
+    "Advertising Agencies": "광고·마케팅", "Broadcasting": "방송", "Electronic Gaming & Multimedia": "게임", "Entertainment": "엔터테인먼트",
+    "Internet Content & Information": "인터넷 플랫폼", "Publishing": "출판", "Telecom Services": "통신 서비스",
+    "Apparel Manufacturing": "의류 제조", "Apparel Retail": "의류 소매", "Auto & Truck Dealerships": "자동차 딜러", "Auto Manufacturers": "자동차",
+    "Auto Parts": "자동차 부품", "Department Stores": "백화점", "Footwear & Accessories": "신발·액세서리", "Furnishings, Fixtures & Appliances": "가구·가전",
+    "Gambling": "도박·베팅", "Home Improvement Retail": "주택용품 소매", "Internet Retail": "온라인 쇼핑", "Leisure": "레저", "Lodging": "호텔",
+    "Luxury Goods": "명품", "Packaging & Containers": "포장·용기", "Personal Services": "생활 서비스", "Recreational Vehicles": "레저용 차량",
+    "Residential Construction": "주택 건설", "Resorts & Casinos": "리조트·카지노", "Restaurants": "외식", "Specialty Retail": "전문 소매",
+    "Textile Manufacturing": "섬유", "Travel Services": "여행",
+    "Beverages - Brewers": "맥주", "Beverages - Non-Alcoholic": "음료", "Beverages - Wineries & Distilleries": "와인·주류", "Confectioners": "제과",
+    "Discount Stores": "할인점", "Education & Training Services": "교육", "Farm Products": "농산물", "Food Distribution": "식품 유통",
+    "Grocery Stores": "식료품점", "Household & Personal Products": "생활용품·화장품", "Packaged Foods": "가공식품", "Tobacco": "담배",
+    "Oil & Gas Drilling": "석유 시추", "Oil & Gas E&P": "석유·가스 생산", "Oil & Gas Equipment & Services": "유전 장비·서비스",
+    "Oil & Gas Integrated": "종합 석유", "Oil & Gas Midstream": "송유관·가스 수송", "Oil & Gas Refining & Marketing": "정유", "Thermal Coal": "발전용 석탄", "Uranium": "우라늄",
+    "Asset Management": "자산운용", "Banks - Diversified": "대형 은행", "Banks - Regional": "지역 은행", "Capital Markets": "증권·투자은행",
+    "Credit Services": "카드·대출", "Financial Conglomerates": "금융 지주", "Financial Data & Stock Exchanges": "금융정보·거래소",
+    "Insurance Brokers": "보험 중개", "Insurance - Diversified": "종합 보험", "Insurance - Life": "생명보험", "Insurance - Property & Casualty": "손해보험",
+    "Insurance - Reinsurance": "재보험", "Insurance - Specialty": "특수 보험", "Mortgage Finance": "주택담보 금융", "Shell Companies": "기업인수목적(SPAC)",
+    "Biotechnology": "바이오", "Diagnostics & Research": "진단·연구", "Drug Manufacturers - General": "대형 제약", "Drug Manufacturers - Specialty & Generic": "특수·복제약",
+    "Health Information Services": "헬스케어 IT", "Healthcare Plans": "건강보험", "Medical Care Facilities": "병원·의료시설", "Medical Devices": "의료기기",
+    "Medical Distribution": "의약품 유통", "Medical Instruments & Supplies": "의료 장비·소모품", "Pharmaceutical Retailers": "약국",
+    "Aerospace & Defense": "항공우주·방산", "Airlines": "항공사", "Airports & Air Services": "공항·항공 서비스", "Building Products & Equipment": "건축 설비",
+    "Business Equipment & Supplies": "사무용품", "Conglomerates": "복합기업", "Consulting Services": "컨설팅", "Electrical Equipment & Parts": "전기 장비·부품",
+    "Engineering & Construction": "엔지니어링·건설", "Farm & Heavy Construction Machinery": "농기계·중장비", "Industrial Distribution": "산업재 유통",
+    "Infrastructure Operations": "인프라 운영", "Integrated Freight & Logistics": "물류·택배", "Marine Shipping": "해운", "Metal Fabrication": "금속 가공",
+    "Pollution & Treatment Controls": "환경 설비", "Railroads": "철도", "Rental & Leasing Services": "렌탈·리스", "Security & Protection Services": "보안",
+    "Specialty Business Services": "기업 서비스", "Specialty Industrial Machinery": "산업기계", "Staffing & Employment Services": "인력 서비스",
+    "Tools & Accessories": "공구", "Trucking": "트럭 운송", "Waste Management": "폐기물 처리",
+    "Real Estate - Development": "부동산 개발", "Real Estate - Diversified": "종합 부동산", "Real Estate Services": "부동산 서비스",
+    "REIT - Diversified": "종합 리츠", "REIT - Healthcare Facilities": "헬스케어 리츠", "REIT - Hotel & Motel": "호텔 리츠", "REIT - Industrial": "물류창고 리츠",
+    "REIT - Mortgage": "모기지 리츠", "REIT - Office": "오피스 리츠", "REIT - Residential": "주거 리츠", "REIT - Retail": "상가 리츠", "REIT - Specialty": "특수 리츠(데이터센터·통신탑)",
+    "Communication Equipment": "통신장비", "Computer Hardware": "컴퓨터 하드웨어", "Consumer Electronics": "전자기기", "Electronic Components": "전자부품",
+    "Electronics & Computer Distribution": "전자제품 유통", "Information Technology Services": "IT 서비스", "Scientific & Technical Instruments": "계측·과학 장비",
+    "Semiconductor Equipment & Materials": "반도체 장비·소재", "Semiconductors": "반도체", "Software - Application": "응용 소프트웨어",
+    "Software - Infrastructure": "인프라 소프트웨어", "Solar": "태양광",
+    "Utilities - Diversified": "종합 유틸리티", "Utilities - Independent Power Producers": "독립 발전", "Utilities - Regulated Electric": "전력",
+    "Utilities - Regulated Gas": "가스", "Utilities - Regulated Water": "수도", "Utilities - Renewable": "재생에너지", "Exchange Traded Fund": "ETF",
   };
 
-  return { tc, lq, TC_LABELS, LQ_LABELS, TC_ACTION, LQ_STANCE, LQ_CATS, board };
+  const board = {
+    adv: { name: "상승 종목 수", desc: "미국에 상장된 주식(ETF 제외, 약 5,600종목) 중 그날 오른 종목 수입니다.", formula: "전체 종목 중 등락률이 0보다 큰 종목 수" },
+    dec: { name: "하락 종목 수", desc: "그날 내린 종목 수입니다. 지수가 올라도 하락 종목이 더 많으면 소수 대형주만 오른 '좁은 장'이라는 뜻입니다.", formula: "전체 종목 중 등락률이 0보다 작은 종목 수" },
+    nh: { name: "52주 신고가", desc: "그날 최근 1년 중 가장 높은 가격을 새로 쓴 종목 수입니다. 많을수록 시장이 넓게 강하다는 뜻입니다.", formula: "장중 52주 최고가를 넘은 종목 수" },
+    nl: { name: "52주 신저가", desc: "그날 최근 1년 중 가장 낮은 가격을 새로 쓴 종목 수입니다. 신고가보다 많으면 시장 속이 약하다는 신호입니다.", formula: "장중 52주 최저가를 밑돈 종목 수" },
+    above50: { name: "50일선 위 비율 (미국 전체)", desc: "미국 상장 주식 중 주가가 최근 50거래일 평균보다 위에 있는 비율입니다. 1~2개월 단기 체력을 보여줍니다. 보통 80% 이상은 과열, 20% 이하는 바닥권으로 봅니다.", formula: "50일선 위 종목 수 ÷ 전체 종목 수 × 100" },
+    above200: { name: "200일선 위 비율 (미국 전체)", desc: "미국 상장 주식 중 주가가 최근 200거래일(약 10개월) 평균보다 위에 있는 비율입니다. 장기 체력을 보여줍니다.", formula: "200일선 위 종목 수 ÷ 전체 종목 수 × 100" },
+    sp500_above50: { name: "S&P500 50일선 위 비율", desc: "S&P500 503종목 중 주가가 50일 평균 위에 있는 비율입니다. 대형주의 단기 체력입니다.", formula: "S&P500 중 50일선 위 종목 수 ÷ 503 × 100" },
+    sp500_above200: { name: "S&P500 200일선 위 비율", desc: "S&P500 503종목 중 주가가 200일 평균 위에 있는 비율입니다. 트렌드캐치 지표로도 씁니다.", formula: "S&P500 중 200일선 위 종목 수 ÷ 503 × 100" },
+    bchart: { name: "200일선·50일선 위 종목 비율 추이", desc: "주가가 이동평균선 위에 있는 종목의 비율이 어떻게 변해 왔는지 보여줍니다. 지수가 올라도 이 비율이 떨어지면 소수 종목만 끌어올리는 장이라는 뜻입니다. 50일선 비율이 20% 아래로 내려갔다가 다시 오르면 바닥 탈출, 80% 위에서 꺾이면 과열 식는 신호로 많이 봅니다.", formula: "S&P500 200일선 비율은 2017년부터 기록이 있습니다. S&P500 50일선 비율과 미국 전체 비율은 2026-11-13부터 매일 쌓입니다." },
+    sectors: { name: "섹터 강도", desc: "미국 상장 주식(ETF·SPAC 제외)을 11개 섹터로 묶어 그날 평균 등락률을 낸 것입니다. 큰 회사의 움직임이 더 크게 반영됩니다(시가총액 가중). 괄호 안은 그 섹터에서 오른 종목의 비율입니다.", formula: "섹터 등락률 = Σ(종목 시총 × 등락률) ÷ Σ 종목 시총. 종목 20개 이상인 섹터만." },
+    gainers: { name: "강세주 · 약세주", desc: "S&P500 구성종목 중 그날 많이 오른 10개, 많이 내린 5개, 시가총액이 가장 큰 10개 종목의 등락입니다.", formula: "회사 설명은 Claude가 작성하고, 없으면 업종명을 씁니다." },
+    industries: { name: "강한 산업 · 약한 산업", desc: "약 145개 세부 산업 중 그날 가장 많이 오른 5개와 가장 많이 내린 5개입니다. 섹터보다 한 단계 더 쪼갠 분류라 '무엇이 강하고 약한지'가 더 구체적으로 보입니다. 옆의 티커는 그 산업에서 시가총액이 가장 큰 3개 종목입니다.", formula: "산업 등락률 = 시가총액 가중 평균. 종목 8개 이상이고 산업 전체 시총이 500억 달러 이상인 산업만." },
+    top40: { name: "신고가 TOP40 업종 분포", desc: "그날 52주 신고가를 쓴 종목 중 특수증권을 빼고 시가총액 상위 40개(40개 미만이면 전부)를 섹터별로 나눈 것입니다. 아래 티커 목록은 신고가 종목 전체입니다.", formula: "제외: 우선주, SPAC, ETF, 같은 회사의 다른 주식." },
+    features: { name: "대표 신고가 (S&P500)", desc: "그날 52주 신고가 종목 중 S&P500 구성종목만 골라 그날 상승률 순으로 최대 9개를 보여줍니다. 9개보다 적은 날은 그 수만큼만 나옵니다. 작은 그래프는 최근 3개월(63거래일) 종가입니다.", formula: "BM·실적·포인트·주의는 매일 아침 Claude가 기업 공시와 뉴스를 확인해 작성합니다. 그날 상승의 단일 원인으로 단정하지 않습니다." },
+    index: { name: "주요 지수", desc: "미국 정규장 종가와 전날 대비 등락률입니다. 그래프는 최근 6거래일 종가이고, 점선은 전날 종가입니다. 초록 = 주식에 좋은 방향, 빨강 = 나쁜 방향입니다(VIX·달러·금리는 오르면 빨강).", formula: "출처: 네이버 증권 해외지수·코스피, 10년물은 FRED DGS10(하루 늦게 공개)." },
+    market: { name: "시장의 변화", desc: "그날 시장에서 가장 중요한 변화를 카드 몇 장으로 정리했습니다. 초록 = 좋은 소식, 빨강 = 나쁜 소식, 회색 = 애매하거나 엇갈린 소식입니다. 카드를 누르면 뒤집히면서 자세한 내용이 나옵니다.", formula: "숫자는 그날 종가 자료에서 계산하고, 뉴스는 Claude가 확인된 기사만 씁니다. 등락 원인을 확인하지 못하면 적지 않습니다." },
+  };
+
+  // 증시 풍향계
+  const WIND = {
+    desc: "트렌드캐치(시장 심리)와 유동성을 하나로 합친 0~100 점수입니다. 사분면에서 '기회' 모서리(돈 넉넉 + 공포)가 100, '위험' 모서리(돈 부족 + 광기)가 0입니다. 높을수록 주식에 순풍, 낮을수록 역풍입니다.",
+    formula: "풍향계 = 60% × 심리 바람 + 40% × 유동성 바람. 심리 바람 = (5 − 트렌드캐치) ÷ 4 × 100 → 공포일수록 높음(역발상). 유동성 바람 = (유동성 − 1) ÷ 4 × 100 → 돈이 넉넉할수록 높음. 정리하면 65 − 15 × 트렌드캐치 + 10 × 유동성.",
+    why: "가중치는 Claude가 2023-09 ~ 2026-11 자료로 정했습니다. 트렌드캐치를 거꾸로 읽은 값은 이후 1~3개월 지수와 뚜렷한 같은 방향 관계가 있었고, 유동성은 장기적으로(달러 등) 선행성이 확인돼 40%를 줬습니다. 시장 체력(200일선 비율 변화)은 넣어도 나아지지 않아 뺐습니다.",
+  };
+
+  return { tc, lq, TC_LABELS, LQ_LABELS, TC_ACTION, LQ_STANCE, LQ_CATS, LQ_CAT_EASY, EASY5, IND_KO, board, WIND };
 })();

@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -q pandas numpy
+      - run: pip install -q pandas numpy scipy
       - name: 무엇을 할지
         id: what
         run: |

@@ -487,20 +487,40 @@
   // ---------------------------------------------------------------- 휴대폰 알림 (OneSignal 웹 푸시)
   function initPush() {
     const btn = $("#pushbtn"); if (!btn) return;
-    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
-    const setLabel = (OS) => { const on = OS && OS.User && OS.User.PushSubscription && OS.User.PushSubscription.optedIn; btn.textContent = on ? "알림 켜짐" : "알림 받기"; btn.classList.toggle("on", !!on); };
-    const ready = () => { btn.hidden = false; setLabel(window.__seoksPush); };
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+    const supported = "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
+    const perm = () => ("Notification" in window ? Notification.permission : "default");
+    const isOn = () => { const OS = window.__seoksPush; return !!(OS && OS.User && OS.User.PushSubscription && OS.User.PushSubscription.optedIn && perm() === "granted"); };
+    const paint = () => { const on = isOn(); btn.classList.toggle("on", on); btn.setAttribute("aria-checked", on ? "true" : "false"); btn.title = on ? "알림 켜짐 · 누르면 끕니다" : "알림 꺼짐 · 누르면 켭니다"; };
+    const guide = (t, h) => { $("#mbox").innerHTML = `<button class="x" aria-label="닫기">×</button><h2>${t}</h2>${h}`; $("#modal").classList.add("on"); $("#mbox .x").onclick = closeInfo; };
+    btn.hidden = false; paint();
+    const ready = () => { paint(); try { window.__seoksPush.User.PushSubscription.addEventListener("change", paint); } catch (e) {} };
     if (window.__seoksPush) ready(); else document.addEventListener("seoks-push-ready", ready);
-    if (ios && !standalone) { btn.hidden = false; btn.textContent = "알림 받기"; }
+    let busy = false;
     btn.onclick = async () => {
-      if (ios && !standalone) {
-        $("#mbox").innerHTML = `<button class="x" aria-label="닫기">×</button><h2>아이폰에서 알림 받기</h2><p>아이폰은 홈 화면에 추가한 Seoks에서만 알림을 받을 수 있습니다 (iOS 16.4 이상).</p><h4>방법</h4><p>1. Safari 아래쪽 공유 버튼을 누릅니다.<br>2. '홈 화면에 추가'를 누릅니다.<br>3. 홈 화면의 Seoks 아이콘으로 열고, 오른쪽 위 '알림 받기'를 누릅니다.</p>`;
-        $("#modal").classList.add("on"); $("#mbox .x").onclick = closeInfo; return;
-      }
-      const OS = window.__seoksPush; if (!OS) return;
-      try { await OS.Notifications.requestPermission(); if (!OS.User.PushSubscription.optedIn) await OS.User.PushSubscription.optIn(); } catch (e) { console.warn(e); }
-      setLabel(OS);
+      if (busy) return;
+      if (ios && !standalone) return guide("아이폰에서 알림 켜기", `<p>아이폰은 홈 화면에 추가한 Seoks에서만 알림을 받을 수 있습니다 (iOS 16.4 이상).</p><h4>방법</h4><p>1. Safari 아래쪽 공유 버튼을 누릅니다.<br>2. '홈 화면에 추가'를 누릅니다.<br>3. 홈 화면의 Seoks 아이콘으로 열고, 오른쪽 위 '알림' 스위치를 켭니다.</p>`);
+      if (!supported) return guide("이 브라우저는 알림을 지원하지 않아요", `<p>크롬·엣지·삼성 인터넷·사파리 최신 버전에서 열어 주세요. 카카오톡 등 앱 안의 브라우저에서는 알림을 켤 수 없습니다.</p>`);
+      const OS = window.__seoksPush;
+      if (!OS) return guide("잠시만요", `<p>알림 기능을 불러오는 중입니다. 잠시 후 다시 눌러 주세요.</p>`);
+      busy = true; btn.classList.add("busy");
+      try {
+        if (isOn()) { await OS.User.PushSubscription.optOut(); toast("알림을 껐어요"); }
+        else if (perm() === "denied") {
+          guide("알림이 차단되어 있어요", `<p>브라우저 설정에서 이 사이트의 알림이 차단된 상태라 스위치로는 켤 수 없습니다.</p><h4>푸는 방법</h4><p>· PC 크롬·엣지: 주소창 왼쪽 아이콘 → 사이트 설정 → 알림 → 허용<br>· 안드로이드 크롬: 오른쪽 위 ⋮ → 설정 → 사이트 설정 → 알림 → 이 사이트 허용<br>· 아이폰(홈 화면 앱): 설정 → 알림 → Seoks → 알림 허용</p><p>허용한 뒤 스위치를 다시 켜 주세요.</p>`);
+        } else {
+          if (perm() !== "granted") await OS.Notifications.requestPermission();
+          if (perm() === "granted") { await OS.User.PushSubscription.optIn(); toast("알림을 켰어요 · 매일 아침 미국장 마감 후 알려드려요"); }
+          else toast("알림 허용을 누르지 않아 꺼진 상태로 둡니다");
+        }
+      } catch (e) { console.warn("push toggle", e); toast("알림 설정 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요"); }
+      busy = false; btn.classList.remove("busy"); paint(); setTimeout(paint, 800);
     };
+  }
+  function toast(msg) {
+    let t = $("#toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 2600);
   }
 
   // ---------------------------------------------------------------- 새 소식

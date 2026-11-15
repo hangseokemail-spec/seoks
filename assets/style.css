@@ -196,8 +196,17 @@ table.st .ds{color:var(--sub);font-size:13.5px}
 
 /* v3: 기준일·알림 버튼·스크롤 */
 .tile .v .ob{margin-left:6px;font-size:11px;font-weight:600;vertical-align:middle;color:#ffd58a;background:rgba(245,207,106,.12);border-radius:4px;padding:1px 5px;white-space:nowrap}
-.pushbtn{flex:none;margin-left:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--gold2);color:var(--gold);font-weight:700;font-size:14px;background:rgba(245,207,106,.08)}
-.pushbtn.on{border-color:var(--line2);color:var(--sub);background:var(--card2)}
+.pushsw{flex:none;display:inline-flex;align-items:center;gap:8px;margin-left:6px;padding:5px 6px 5px 12px;border-radius:999px;border:1px solid var(--line2);background:var(--card2);color:var(--sub);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit}
+.pushsw .sw{position:relative;width:40px;height:22px;border-radius:999px;background:#51648f;transition:background .2s}
+.pushsw .sw i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s}
+.pushsw.on{color:var(--gold);border-color:var(--gold2)}
+.pushsw.on .sw{background:var(--up)}
+.pushsw.on .sw i{transform:translateX(18px)}
+.pushsw.busy{opacity:.55;pointer-events:none}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translate(-50%,20px);max-width:calc(100vw - 32px);padding:11px 18px;border-radius:12px;background:#0f1c38;border:1px solid var(--line2);color:var(--text);font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:200;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+/* OneSignal 기본 안내창·종 아이콘은 쓰지 않음 (상단 스위치로만 켜고 끔) */
+#onesignal-slidedown-container,#onesignal-bell-container,#onesignal-popover-container{display:none!important}
 .hmwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .hmwrap .hm{min-width:520px}
 .at{min-width:720px}
@@ -272,7 +281,7 @@ table.st .ds{color:var(--sub);font-size:13.5px}
   .chartbox{height:200px}
   .chartbox.sm{height:150px}
   .hs{display:none}
-  .pushbtn{padding:7px 11px;font-size:13px}
+  .pushsw{padding:4px 5px 4px 10px;font-size:13px;gap:6px}
   .bell{width:36px;height:36px}
   .fc .top{font-size:17px}
   .scalelb{font-size:10px}

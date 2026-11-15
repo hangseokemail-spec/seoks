@@ -105,7 +105,10 @@ def check():
     if KEYS[2]:   # 아무에게도 가지 않는 대상(없는 사용자)으로 보내 열쇠만 확인한다
         code, resp = onesignal({'app_id': APP_ID, 'target_channel': 'push', 'include_aliases': {'external_id': ['seoks-key-check-nobody']},
                                 'contents': {'en': 'key check'}})
-        res['ONESIGNAL_KEY'] = '실패(열쇠 거부)' if code in (401, 403) else f'ok ({code})'
+        res['ONESIGNAL_KEY'] = ('실패(열쇠 거부)' if code in (401, 403) else 'ok') + f' ({code})'
+        res['onesignal_reply'] = scrub(resp.get('errors') or resp)[:300]
+        res['onesignal_key_shape'] = {'length': len(KEYS[2]), 'starts_os_v2': KEYS[2].startswith('os_v2_'),
+                                      'has_space_or_newline': any(c.isspace() for c in KEYS[2])}
     else:
         res['ONESIGNAL_KEY'] = '없음'
     save('data/runs/keys_check.json', res)

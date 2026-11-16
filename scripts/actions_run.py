@@ -3,10 +3,10 @@
   python scripts/actions_run.py notify                              → data/notify/latest.json 내용으로 OneSignal 알림, 결과 data/notify/result.json
   python scripts/actions_run.py check                               → 열쇠 3개가 맞는지만 확인(알림은 보내지 않음), 결과 data/runs/keys_check.json
 결과 파일·로그에는 열쇠를 절대 남기지 않는다(공개 저장소)."""
-import datetime as dt, json, os, subprocess, sys, urllib.request, urllib.error
+import datetime as dt, json, os, re, subprocess, sys, urllib.request, urllib.error
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-KEYS = [os.environ.get(k, '') for k in ('FINVIZ_AUTH', 'FRED_KEY', 'ONESIGNAL_KEY')]
+KEYS = [os.environ.get(k, '').strip() for k in ('FINVIZ_AUTH', 'FRED_KEY', 'ONESIGNAL_KEY')]
 APP_ID = 'c323691f-5bf6-4942-aac1-fd6254f1b0c0'
 KST = dt.timezone(dt.timedelta(hours=9))
 
@@ -16,7 +16,7 @@ def scrub(s):
     for k in KEYS:
         if k:
             s = s.replace(k, '***')
-    return s
+    return re.sub(r"(auth|api_key)=[^&'\" ]+", r"\1=***", s)
 
 
 def save(rel, obj):

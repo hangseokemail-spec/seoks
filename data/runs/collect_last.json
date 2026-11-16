@@ -22,7 +22,7 @@
   "          ^^^^^^^^^^^^^^^^^^^^",
   "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 46, in http",
   "    raise RuntimeError(f\"fetch failed: {url.split('?')[0]} ({last})\")",
-  "RuntimeError: fetch failed: https://elite.finviz.com/export/screener (URL can't contain control characters. '/export/screener?type=stocks&v=111&f=ta_highlow52w_nh&auth=330dff33-bad0-44a3-8734-ae18f426f53b\\n&o=-marketcap' (found at least '\\n'))"
+  "RuntimeError: fetch failed: https://elite.finviz.com/export/screener (URL can't contain control characters. '/export/screener?type=stocks&v=111&f=ta_highlow52w_nh&auth=***\\n&o=-marketcap' (found at least '\\n'))"
  ],
  "finished": "2026-11-17 06:05:44 KST"
 }

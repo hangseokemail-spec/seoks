@@ -20,8 +20,8 @@ import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
-FINVIZ = os.environ.get("FINVIZ_AUTH", "")
-FRED_KEY = os.environ.get("FRED_KEY", "")
+FINVIZ = os.environ.get("FINVIZ_AUTH", "").strip()
+FRED_KEY = os.environ.get("FRED_KEY", "").strip()
 START = "2023-01-03"          # 화면·상관용 시작일
 FETCH_START = "2021-06-01"     # 3개월·1년 변화율 계산용 여유
 
@@ -43,7 +43,12 @@ def http(url, timeout=60, tries=3):
         except Exception as e:  # noqa
             last = e
             time.sleep(2 + 2 * i)
-    raise RuntimeError(f"fetch failed: {url.split('?')[0]} ({last})")
+    msg = str(last)
+    for k in (FINVIZ, FRED_KEY):
+        if k:
+            msg = msg.replace(k, "***")
+    msg = re.sub(r"(auth|api_key)=[^&'\" ]+", r"\1=***", msg)
+    raise RuntimeError(f"fetch failed: {url.split('?')[0]} ({msg})")
 
 
 def jload(path, default):

@@ -1,23 +1,28 @@
 {
- "started": "2026-11-16 18:37:28 KST",
- "args": [
-  "--no-board"
- ],
- "collect_rc": 0,
- "result": {
-  "date": "2026-11-13",
-  "tc": 3.2,
-  "tc_n": 9,
-  "lq": 3.1,
-  "lq_w": 100.0,
-  "board": false
- },
+ "started": "2026-11-17 06:05:20 KST",
+ "args": [],
+ "collect_rc": 1,
+ "result": null,
  "log_tail": [
   "[1/4] 시세·거시 데이터 수집",
   "[2/4] 점수 계산",
-  "[3/4] 지수 상관 계산",
-  "풍향계 {\"date\": \"2026-11-13\", \"wind\": 48.0, \"zone\": \"무풍\"}",
-  "{\"date\": \"2026-11-13\", \"tc\": 3.2, \"tc_n\": 9, \"lq\": 3.1, \"lq_w\": 100.0, \"board\": false}"
+  "[4/4] 현황판 2026-11-16 (finviz)",
+  "",
+  "Traceback (most recent call last):",
+  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 593, in <module>",
+  "    main()",
+  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 573, in main",
+  "    made_board = build_board(last, df)",
+  "                 ^^^^^^^^^^^^^^^^^^^^^",
+  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 433, in build_board",
+  "    nh = finviz_screen(\"ta_highlow52w_nh\", order=\"-marketcap\")",
+  "         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 105, in finviz_screen",
+  "    txt = http(u, timeout=120).decode(\"utf-8\", \"replace\")",
+  "          ^^^^^^^^^^^^^^^^^^^^",
+  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 46, in http",
+  "    raise RuntimeError(f\"fetch failed: {url.split('?')[0]} ({last})\")",
+  "RuntimeError: fetch failed: https://elite.finviz.com/export/screener (URL can't contain control characters. '/export/screener?type=stocks&v=111&f=ta_highlow52w_nh&auth=330dff33-bad0-44a3-8734-ae18f426f53b\\n&o=-marketcap' (found at least '\\n'))"
  ],
- "finished": "2026-11-16 18:37:40 KST"
+ "finished": "2026-11-17 06:05:44 KST"
 }

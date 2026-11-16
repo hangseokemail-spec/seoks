@@ -17,9 +17,9 @@
 - `scripts/brief.py` — Fable에게 넘길 자료 묶음(`data/raw/brief_<날짜>.json`, 커밋 안 됨)
 - `scripts/check_comments.py` — 코멘트 형식·숫자 대조 검사
 - `scripts/export_db.py` — 날짜별 기록 DB `data/db.csv` (구글 시트 'Seoks 날짜별 기록'이 IMPORTDATA로 읽음)
-- `data/weights.json` — 지표 가중치와 풍향계 심리·유동성 비중의 버전 기록(적용 시작일별). 2주마다 **Claude Fable**이 점검·결정
+- `data/weights.json` — 지표 가중치와 풍향계 심리·유동성 비중의 버전 기록(적용 시작일별). 매주 토요일 점검(주간·월간·분기, 조정 폭 분기 > 월간 > 주간) — **가장 최신 Claude 모델**(지금 Fable 5.2)이 결정, Opus가 적용
 - `scripts/weights.py` — 가중치 버전을 읽어 종합 점수·풍향계 계산 (collect.py·wind.py·brief.py가 사용)
-- `scripts/weights_eval.py` / `WEIGHTS.md` — 2주 가중치 점검: 근거 자료(brief) → Fable이 후보 시험·결정 → Opus가 그대로 적용(apply)
+- `scripts/weights_eval.py` / `WEIGHTS.md` — 가중치 점검: 근거 자료(brief: 풍향계 방향 적중 점검 + 지표별 관계) → 결정 모델이 후보 시험·결정 → Opus가 그대로 적용(apply)
 - `scripts/backfill_sp500_ma.py` — S&P500 50·200일선 위 비율 과거값(2017~)을 구성종목 일봉으로 계산 (한 번만 실행)
 - `apps-script/Code.gs` — 구글 시트 기록·구독자 메일
 

@@ -342,7 +342,8 @@
           <span class="zm">${esc(Z.mean || "")}</span><span class="za"><b>${esc(Z.buy || "")}</b>${esc(Z.hold || "")}</span><span class="zp">${past(st[z.name])}${nd[z.name] ? `<span>나스닥100 ${sgn(nd[z.name].mean, 1, "%")}</span>` : ""}</span></div>`; }).join("")}</div>
       <div class="note">${esc(E.zone_note)} 전체 평균: S&P500 ${st["전체"] ? sgn(st["전체"].mean, 1, "%") : "—"}.</div></div>`;
   }
-  // ---------------------------------------------------------------- 가중치 (data/weights.json · 2주마다 Claude Fable이 점검)
+  // ---------------------------------------------------------------- 가중치 (data/weights.json · 매주 토요일 점검: 주간·월간·분기)
+  const LVL = { weekly: "주간", monthly: "월간", quarterly: "분기", biweekly: "첫" };
   const TCK = ["fg", "aaii", "vix", "hy", "pc", "margin", "a200", "rsi", "dev"], LQK = ["fed", "nl", "m2", "effr", "hy", "dxy", "margin", "bank", "vol", "nfci", "y10"];
   function verAt(d) { const V = S.weights && S.weights.versions; if (!V || !V.length) return null; let v = V[0]; for (const x of V) if (x.from <= d) v = x; return v; }
   function wNorm(o, keys) { const t = keys.reduce((a, k) => a + (+o[k] || 0), 0) || 1; const r = {}; keys.forEach((k) => r[k] = (+o[k] || 0) / t * 100); return r; }
@@ -357,7 +358,7 @@
   }
   function weightsNote(i) {
     const v = verAt(D()[i]); if (!v) return "";
-    return `${short(D()[i])}에 쓰인 가중치는 버전 ${v.v}(${v.from}부터 적용, ${v.by})입니다. 가중치는 2주마다 점수와 이후 지수의 관계를 보고 Claude Fable이 점검하며, 바뀌면 다음 거래일부터 적용되고 이미 나온 과거 점수는 그대로 둡니다.`;
+    return `${short(D()[i])}에 쓰인 가중치는 버전 ${v.v}(${v.from}부터 적용, ${v.by})입니다. 가중치는 매주 토요일 풍향계가 가리킨 방향이 맞았는지 확인해 조정하며(주간·월간·분기), 바뀌면 다음 거래일부터 적용되고 이미 나온 과거 점수는 그대로 둡니다.`;
   }
   function weightsCard(i) {
     const W = S.weights; if (!W || !W.versions) return "";
@@ -371,10 +372,15 @@
     const sDl = prev ? +v.wind.sent - +prev.wind.sent : 0;
     const reasons = Object.entries(v.reasons || {}).filter(([, t]) => t);
     const hist = W.versions.slice().reverse().map((x) => `<tr class="${x === v ? "hit" : ""}"><td>v${x.v}</td><td>${x.from}부터</td><td>심리 ${pctW(+x.wind.sent)}%</td><td>${esc(x.by || "")}</td></tr>`).join("");
-    const revs = R.slice().reverse().slice(0, 6).map((r) => `<tr><td>${r.date}</td><td>${r.decision === "변경" ? `<b>변경</b> → v${r.version}` : "유지"}</td><td>${esc(r.summary || "")}</td></tr>`).join("");
-    return `<div class="card sec wts"><h3>가중치 점검 <span class="muted" style="font-weight:600;font-size:13px">· 2주마다 Claude Fable</span></h3>
-      <div class="cap">점수를 만들 때 지표마다 얼마나 무게를 둘지(가중치)를, 점수와 실제 지수가 그 뒤 어떻게 움직였는지 비교해 2주마다 다시 정합니다. 바뀌면 다음 거래일부터 적용되고, 이미 나온 과거 점수는 그대로입니다.</div>
-      <div class="wvh"><span class="pill" style="background:#3b5b99">버전 ${v.v}</span><span>${v.from}부터 적용${pending ? " (다음 거래일부터)" : ""} · ${esc(v.by || "")}</span>${last ? `<span class="muted">최근 점검 ${last.date} (${last.decision})</span>` : `<span class="muted">아직 점검 전</span>`}${sch && sch.next ? `<span class="muted">다음 점검 ${sch.next} 무렵</span>` : ""}</div>
+    const lv = (x) => LVL[x] || "";
+    const revs = R.slice().reverse().slice(0, 8).map((r) => `<tr><td>${r.date}<br><span class="muted">${lv(r.level)} 점검</span></td><td>${r.decision === "변경" ? `<b>변경</b> → v${r.version}` : "유지"}</td><td>${r.direction_note ? `<b>방향:</b> ${esc(r.direction_note)}<br>` : ""}${esc(r.summary || "")}</td></tr>`).join("");
+    const dec = (W.rules && W.rules.decider) || {};
+    const chk = last && last.check ? Object.entries(last.check).map(([k, c]) => `<span class="wtag">${esc(k.replace(/최근(\d+)주·/, "최근 $1주 신호의 "))} 성적: 순풍 ${esc(String(c["순풍"]).replace("평균 None%", "—"))} · 역풍 ${esc(String(c["역풍"]).replace("평균 None%", "—"))} · 같은 기간 평균 ${c["같은기간_평균%"]}% · 맞힌 횟수(평균 대비) ${esc(c["방향적중_평균대비"])}</span>`).join("") : "";
+    return `<div class="card sec wts"><h3>가중치 점검 <span class="muted" style="font-weight:600;font-size:13px">· 매주 토요일 (주간·월간·분기)</span></h3>
+      <div class="cap">풍향계는 증시의 방향을 미리 맞히려는 지표입니다. 매주 토요일 풍향계가 가리킨 방향이 실제로 맞았는지 확인하고, 신호마다 얼마나 무게를 둘지(가중치)를 조정합니다. 주간은 조금, 매달 첫 토요일(월간)은 더, 분기 첫 달(분기)은 가장 크게 움직일 수 있습니다. 결정은 가장 최신 Claude 모델${dec.name ? `(지금 ${esc(dec.name)})` : ""}이, 적용은 Claude Opus가 합니다. 바뀌면 다음 거래일부터 적용되고, 이미 나온 과거 점수는 그대로입니다.</div>
+      <div class="wvh"><span class="pill" style="background:#3b5b99">버전 ${v.v}</span><span>${v.from}부터 적용${pending ? " (다음 거래일부터)" : ""} · ${esc(v.by || "")}</span>${last ? `<span class="muted">최근 점검 ${last.date} (${lv(last.level)} · ${last.decision})</span>` : `<span class="muted">아직 점검 전</span>`}${sch && sch.next ? `<span class="muted">다음 점검 ${sch.next} (${lv(sch.next_level)})</span>` : ""}</div>
+      ${last && last.direction_note ? `<div class="wsum"><b>방향 점검 (${last.date})</b> ${esc(last.direction_note)}</div>` : ""}
+      ${chk ? `<div class="wtags" style="margin:4px 0 6px">${chk}</div>` : ""}
       ${v.summary ? `<div class="wsum">${esc(v.summary)}</div>` : ""}
       ${used && used !== v ? `<div class="note" style="margin:4px 0">${short(d)} 점수는 버전 ${used.v} 가중치로 계산됐습니다(이미 나온 점수는 바꾸지 않습니다).</div>` : ""}
       ${last && last.decision === "유지" && last.version === v.v && last.summary && last.summary !== v.summary ? `<div class="wsum">${esc(last.date)} 점검: ${esc(last.summary)}</div>` : ""}
@@ -1004,14 +1010,14 @@
       const eq = M.tc.every((m) => Math.abs(wOf("tc", m.key, i) - wOf("tc", M.tc[0].key, i)) < 0.05);
       return `<h2>트렌드캐치 종합</h2><div class="cur"><span class="v num">${v ?? "—"}</span>${pill(labelTC(v), colTC(labelTC(v)))}<span class="muted">${short(D()[i])} 기준</span></div>
         <h4>무엇인가요</h4><p>시장 심리가 얼마나 달아올랐는지(광기) 또는 얼어붙었는지(공포)를 9개 지표로 잰 점수입니다. 역발상으로 읽습니다: 공포일 때 사고, 광기일 때 파는 쪽이 과거에 유리했습니다.</p>
-        <h4>계산 방법</h4><p>9개 지표 점수(1~5)의 ${eq ? "단순평균(가중치가 모두 같음)" : "가중평균"}, 소수 첫째 자리 반올림. 값이 있는 지표가 5개 이상일 때만 계산하고, 값이 없는 지표는 빼고 나머지 가중치로 다시 나눕니다. 가중치는 2주마다 Claude Fable이 점검합니다(풍향계 탭 아래 '가중치 점검').</p>
+        <h4>계산 방법</h4><p>9개 지표 점수(1~5)의 ${eq ? "단순평균(가중치가 모두 같음)" : "가중평균"}, 소수 첫째 자리 반올림. 값이 있는 지표가 5개 이상일 때만 계산하고, 값이 없는 지표는 빼고 나머지 가중치로 다시 나눕니다. 가중치는 매주 토요일 점검합니다(풍향계 탭 아래 '가중치 점검').</p>
         <table>${rows}</table><h4>판단 구간</h4><table>${[["4.5 ~ 5.0", "광기"], ["3.5 ~ 4.5", "과열"], ["2.5 ~ 3.5", "중립"], ["1.5 ~ 2.5", "불안"], ["1.0 ~ 1.5", "공포"]].map(([r, l]) => `<tr class="${l === labelTC(v) ? "hit" : ""}"><td>${r}</td><td>${l}</td><td style="text-align:right">${M.TC_ACTION[l]}</td></tr>`).join("")}</table>`;
     }
     const rows = M.lq.map((m) => { const s = at("s_lq_" + m.key, i); return `<tr><td>${m.cat}. ${m.name}</td><td style="text-align:right">${fmtW(wOf("lq", m.key, i))}%</td><td style="text-align:right">${s ?? "—"}</td></tr>`; }).join("");
     const catP = ["A", "B", "C", "D"].map((c) => `${c} ${M.LQ_CAT_EASY[c].name} ${Math.round(M.lq.filter((m) => m.cat === c).reduce((a, m) => a + wOf("lq", m.key, i), 0))}%`).join(" · ");
     return `<h2>유동성 종합</h2><div class="cur"><span class="v num">${v ?? "—"}</span>${pill(labelLQ(v), colLQ(labelLQ(v)))}<span class="muted">${short(D()[i])} 기준</span></div>
       <h4>무엇인가요</h4><p>주식시장에 돈이 얼마나 넉넉하게 돌고 있는지를 11개 지표로 잰 점수입니다. 넉넉할수록(풍부) 주식에 순풍, 빠듯할수록(경색) 역풍입니다.</p>
-      <h4>계산 방법</h4><p>11개 지표 점수의 가중평균 (${catP}). 값이 없는 지표는 빼고 나머지 가중치로 다시 나눕니다 (전체 가중치의 70% 이상 있을 때만 계산). 가중치는 2주마다 Claude Fable이 점검합니다(풍향계 탭 아래 '가중치 점검').</p>
+      <h4>계산 방법</h4><p>11개 지표 점수의 가중평균 (${catP}). 값이 없는 지표는 빼고 나머지 가중치로 다시 나눕니다 (전체 가중치의 70% 이상 있을 때만 계산). 가중치는 매주 토요일 점검합니다(풍향계 탭 아래 '가중치 점검').</p>
       <p class="sub" style="margin-top:6px">원본 시트 대비 변경: VIX 제외(그 몫은 D 안에서 비례 배분), 10년물을 5점 척도로 바꿔 D에 편입, DXY·10년물·EFFR 기준 재설정.</p>
       <table><tr><td class="muted">지표</td><td class="muted" style="text-align:right">가중치</td><td class="muted" style="text-align:right">점수</td></tr>${rows}</table>
       <h4>판단 구간</h4><table>${[["4.5 ~ 5.0", "풍부"], ["3.5 ~ 4.5", "우호"], ["2.5 ~ 3.5", "중립"], ["1.5 ~ 2.5", "긴축"], ["1.0 ~ 1.5", "경색"]].map(([r, l]) => `<tr class="${l === labelLQ(v) ? "hit" : ""}"><td>${r}</td><td>${l}</td><td style="text-align:right">${M.LQ_STANCE[l]}</td></tr>`).join("")}</table>`;

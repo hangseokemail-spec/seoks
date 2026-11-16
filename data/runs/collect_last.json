@@ -1,28 +1,35 @@
 {
- "started": "2026-11-17 06:05:20 KST",
+ "started": "2026-11-17 06:11:29 KST",
  "args": [],
- "collect_rc": 1,
- "result": null,
+ "collect_rc": 0,
+ "result": {
+  "date": "2026-11-16",
+  "tc": 3.2,
+  "tc_n": 8,
+  "lq": 3.0,
+  "lq_w": 100.0,
+  "board": true
+ },
  "log_tail": [
   "[1/4] 시세·거시 데이터 수집",
   "[2/4] 점수 계산",
   "[4/4] 현황판 2026-11-16 (finviz)",
-  "",
-  "Traceback (most recent call last):",
-  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 593, in <module>",
-  "    main()",
-  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 573, in main",
-  "    made_board = build_board(last, df)",
-  "                 ^^^^^^^^^^^^^^^^^^^^^",
-  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 433, in build_board",
-  "    nh = finviz_screen(\"ta_highlow52w_nh\", order=\"-marketcap\")",
-  "         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
-  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 105, in finviz_screen",
-  "    txt = http(u, timeout=120).decode(\"utf-8\", \"replace\")",
-  "          ^^^^^^^^^^^^^^^^^^^^",
-  "  File \"/home/runner/work/seoks/seoks/scripts/collect.py\", line 46, in http",
-  "    raise RuntimeError(f\"fetch failed: {url.split('?')[0]} ({last})\")",
-  "RuntimeError: fetch failed: https://elite.finviz.com/export/screener (URL can't contain control characters. '/export/screener?type=stocks&v=111&f=ta_highlow52w_nh&auth=***\\n&o=-marketcap' (found at least '\\n'))"
+  "[1/4] 시세·거시 데이터 수집",
+  "[2/4] 점수 계산",
+  "[3/4] 지수 상관 계산",
+  "풍향계 {\"date\": \"2026-11-16\", \"wind\": 47.0, \"zone\": \"무풍\"}",
+  "{\"date\": \"2026-11-16\", \"tc\": 3.2, \"tc_n\": 8, \"lq\": 3.0, \"lq_w\": 100.0, \"board\": true}"
  ],
- "finished": "2026-11-17 06:05:44 KST"
+ "analyze_rc": 0,
+ "analyze_tail": [
+  "lq_bank    2010-07-09 w= 855 IC4=-0.044 IC13=-0.11 past13=-0.153 선행 (약함) 점수 높을 때 이후 수익률 ↓",
+  "lq_vol     2010-07-09 w= 855 IC4=0.001 IC13=0.045 past13=-0.021 관계 약함 점수 높을 때 이후 수익률 ↑",
+  "lq_nfci    2010-07-09 w= 855 IC4=-0.105 IC13=-0.216 past13=0.259 선행 (약함) 점수 높을 때 이후 수익률 ↓",
+  "lq_y10     2010-07-09 w= 854 IC4=0.125 IC13=0.169 past13=-0.116 선행 (약함) 점수 높을 때 이후 수익률 ↑",
+  "tc_margin  2023-09-22 w= 166 IC4=-0.337 IC13=-0.527 past13=-0.016 선행 (뚜렷) · 표본 3년 점수 높을 때 이후 수익률 ↓",
+  "lq_margin  2023-09-22 w= 166 IC4=-0.337 IC13=-0.527 past13=-0.016 선행 (뚜렷) · 표본 3년 점수 높을 때 이후 수익률 ↓",
+  "tc         2023-09-22 w= 166 IC4=-0.256 IC13=-0.599 past13=0.64 선행 (뚜렷) · 후행 · 표본 3년 점수 높을 때 이후 수익률 ↓",
+  "lq         2023-01-06 w= 203 IC4=-0.065 IC13=-0.145 past13=0.084 선행 (약함) · 표본 4년 점수 높을 때 이후 수익률 ↓"
+ ],
+ "finished": "2026-11-17 06:12:08 KST"
 }

@@ -21,6 +21,7 @@ git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
 | 6 | **Fable** (하위 에이전트, `model: "fable"`) | 해석(코멘트 작성) · 편집(다듬기·자체 검사) · 회사 한 줄 설명 — 지침 `FABLE.md` |
 | 7~10 | **Opus 5.5** (메인 세션) | 검사 · 저장 · 다른 사람 알림 · 마지막 메시지 |
 
+- **가중치**(트렌드캐치·유동성 지표 비중, 풍향계 심리·유동성 비중)는 `data/weights.json`이 정하고, 2주마다 별도 예약 작업에서 **Fable만** 바꾼다(`WEIGHTS.md`). 매일 작업에서는 가중치를 건드리지 않는다. 풍향계 식은 brief의 `rules.풍향계_식`을 따른다.
 - 메인 세션이 Opus 5.5(`claude-opus-5-5`)가 아니면: 2~5단계를 `Agent(model: "opus")` 하나에, 7~9단계를 또 다른 `Agent(model: "opus")` 하나에 맡기고 메인 세션은 순서만 진행한다.
 - Opus는 코멘트 **문장 내용**을 쓰거나 고치지 않는다 (7단계의 예외만). 사실(숫자·뉴스·실적)은 Opus가 모으고, 그 사실로 무엇을 말할지는 Fable이 정한다.
 

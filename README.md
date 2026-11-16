@@ -3,7 +3,7 @@
 매일 아침 미국 증시를 정리하는 현황판입니다. https://hangseokemail-spec.github.io/seoks/
 
 - **증시현황판**: 3대 지수, 시장 Breadth, 52주 신고가 업종 분포, 대표 신고가 8선(BM·실적·포인트·주의)
-- **트렌드캐치**: 시장 심리 9개 지표 → 1~5점 → 단순평균 (광기·과열·중립·불안·공포)
+- **트렌드캐치**: 시장 심리 9개 지표 → 1~5점 → 가중평균 (광기·과열·중립·불안·공포)
 - **유동성**: 유동성 11개 지표 → 1~5점 → 가중평균 (풍부·우호·중립·긴축·경색)
 - 날짜 칩·달력으로 과거 보기, 모든 수치는 눌러서 계산 방법 확인, 나스닥100·S&P500·코스피와의 상관
 
@@ -17,6 +17,9 @@
 - `scripts/brief.py` — Fable에게 넘길 자료 묶음(`data/raw/brief_<날짜>.json`, 커밋 안 됨)
 - `scripts/check_comments.py` — 코멘트 형식·숫자 대조 검사
 - `scripts/export_db.py` — 날짜별 기록 DB `data/db.csv` (구글 시트 'Seoks 날짜별 기록'이 IMPORTDATA로 읽음)
+- `data/weights.json` — 지표 가중치와 풍향계 심리·유동성 비중의 버전 기록(적용 시작일별). 2주마다 **Claude Fable**이 점검·결정
+- `scripts/weights.py` — 가중치 버전을 읽어 종합 점수·풍향계 계산 (collect.py·wind.py·brief.py가 사용)
+- `scripts/weights_eval.py` / `WEIGHTS.md` — 2주 가중치 점검: 근거 자료(brief) → Fable이 후보 시험·결정 → Opus가 그대로 적용(apply)
 - `scripts/backfill_sp500_ma.py` — S&P500 50·200일선 위 비율 과거값(2017~)을 구성종목 일봉으로 계산 (한 번만 실행)
 - `apps-script/Code.gs` — 구글 시트 기록·구독자 메일
 

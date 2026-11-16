@@ -70,3 +70,17 @@
 - "유지"일 때는 `decision`, `by`, `summary`만 있으면 됩니다. summary에는 왜 유지했는지를 숫자로 적어 주세요.
 - 문체: 존댓말, 결론부터, 쉬운 말. "반드시", "확실히" 같은 단정이나 "사세요/파세요" 같은 지시는 쓰지 않습니다. 투자 권유가 아닙니다.
 - summary와 reasons는 사이트의 "가중치" 카드에 그대로 보입니다. 처음 보는 사람이 읽고 이해할 수 있게 써 주세요.
+
+---
+
+## 7. 정기 작업 절차 (Opus 5.5가 진행 · 격주 일요일 오전, 한국 시각)
+
+예약 작업은 매주 일요일에 깨어나고, 격주(2026-11-29부터 14일마다)에만 점검합니다. **가중치를 정하는 것은 Fable뿐**이고, Opus는 자료 준비·검사·적용·저장만 합니다. API 키는 필요 없습니다(키를 파일·커밋·메시지·하위 에이전트 프롬프트에 쓰지 않습니다).
+
+1. 준비: `git clone --depth 1 https://github.com/hangseokemail-spec/seoks /home/claude/seoks` (이미 있으면 `git pull -q --rebase`), `pip install pandas numpy --break-system-packages -q`(없을 때만).
+2. `python3 scripts/weights_eval.py due` → `no`면 "이번 주는 점검 주가 아닙니다(다음 점검 <data/weights.json의 rules.schedule.next>)" 한 줄로 끝냅니다. 사용자가 직접 점검을 요청한 경우에만 이 단계를 건너뜁니다.
+3. `rm -f data/raw/weights_tests.log data/raw/weights_cand_*.json data/raw/weights_decision.json` 후 `python3 scripts/weights_eval.py brief`.
+4. `Agent(model: "fable", run_in_background: false)`에 맡깁니다. 프롬프트: "당신은 Claude Fable 5.2이고 Seoks의 가중치 결정 담당입니다. 작업 폴더 /home/claude/seoks. `WEIGHTS.md`를 처음부터 읽고 1~6절대로 하세요: 근거 `data/raw/weights_brief.json` 읽기 → 후보 시험(최대 5개, `python3 scripts/weights_eval.py test …`) → `data/raw/weights_decision.json` 작성(by: "Claude Fable 5.2"). 다른 파일 수정·커밋·푸시 금지. 마지막 답에 결정, 바꾼 숫자(지금→새 값), 핵심 이유 3줄, 시험한 후보 요약." (+ 근거 파일의 '지난_점검'을 보라고 한 줄)
+5. 검사(Opus): 결정 파일이 있는지, "변경"이면 `weights_tests.log`의 마지막 통과 후보와 숫자가 같은지, `python3 scripts/weights_eval.py test data/raw/weights_decision.json`이 통과하는지, summary·reasons의 숫자가 근거 파일·시험 결과와 맞는지 확인합니다. 틀린 숫자나 단정·지시 표현이 있으면 `SendMessage`로 같은 Fable에게 **한 번** 고쳐 달라고 합니다. Opus는 문장이나 숫자를 직접 바꾸지 않습니다. 그래도 맞지 않으면 적용하지 말고 이유를 남기고 끝냅니다(가중치는 그대로 유지됨).
+6. 적용: `python3 scripts/weights_eval.py apply data/raw/weights_decision.json` → `python3 scripts/wind.py` → `python3 scripts/export_db.py` → `git add -A && git commit -qm "가중치 점검 <날짜>: <변경 vN | 유지>" && git pull -q --rebase && git push -q`. 새 가중치는 다음 미국 거래일 수집부터 GitHub 작업이 자동으로 씁니다(따로 수집을 맡기지 않습니다).
+7. 마지막 메시지(한국어, 초보자용): 결정(변경/유지), 바뀐 가중치 표(지금→새 값), Fable의 이유 요약 3줄, 적용 시작일, 다음 점검일, 사이트 링크 https://hangseokemail-spec.github.io/seoks/?tab=wind (아래 '가중치 점검' 카드).

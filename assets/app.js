@@ -361,7 +361,8 @@
   }
   function weightsCard(i) {
     const W = S.weights; if (!W || !W.versions) return "";
-    const d = D()[i], v = verAt(d), k = W.versions.indexOf(v), prev = k > 0 ? W.versions[k - 1] : null;
+    const d = D()[i], used = verAt(d), v = W.versions[W.versions.length - 1], k = W.versions.length - 1, prev = k > 0 ? W.versions[k - 1] : null;
+    const pending = S.latest && v.from > S.latest.date;
     const R = W.reviews || [], last = R.length ? R[R.length - 1] : null;
     const sch = W.rules && W.rules.schedule, nm = (kind, key) => ((kind === "tc" ? M.tc : M.lq).find((m) => m.key === key) || {}).short || ((kind === "tc" ? M.tc : M.lq).find((m) => m.key === key) || {}).name || key;
     const row = (kind) => { const keys = kind === "tc" ? TCK : LQK, cur = wNorm(v[kind], keys), pv = prev ? wNorm(prev[kind], keys) : null;
@@ -373,8 +374,9 @@
     const revs = R.slice().reverse().slice(0, 6).map((r) => `<tr><td>${r.date}</td><td>${r.decision === "변경" ? `<b>변경</b> → v${r.version}` : "유지"}</td><td>${esc(r.summary || "")}</td></tr>`).join("");
     return `<div class="card sec wts"><h3>가중치 점검 <span class="muted" style="font-weight:600;font-size:13px">· 2주마다 Claude Fable</span></h3>
       <div class="cap">점수를 만들 때 지표마다 얼마나 무게를 둘지(가중치)를, 점수와 실제 지수가 그 뒤 어떻게 움직였는지 비교해 2주마다 다시 정합니다. 바뀌면 다음 거래일부터 적용되고, 이미 나온 과거 점수는 그대로입니다.</div>
-      <div class="wvh"><span class="pill" style="background:#3b5b99">버전 ${v.v}</span><span>${v.from}부터 적용 · ${esc(v.by || "")}</span>${last ? `<span class="muted">최근 점검 ${last.date} (${last.decision})</span>` : `<span class="muted">아직 점검 전</span>`}${sch && sch.next ? `<span class="muted">다음 점검 ${sch.next} 무렵</span>` : ""}</div>
+      <div class="wvh"><span class="pill" style="background:#3b5b99">버전 ${v.v}</span><span>${v.from}부터 적용${pending ? " (다음 거래일부터)" : ""} · ${esc(v.by || "")}</span>${last ? `<span class="muted">최근 점검 ${last.date} (${last.decision})</span>` : `<span class="muted">아직 점검 전</span>`}${sch && sch.next ? `<span class="muted">다음 점검 ${sch.next} 무렵</span>` : ""}</div>
       ${v.summary ? `<div class="wsum">${esc(v.summary)}</div>` : ""}
+      ${used && used !== v ? `<div class="note" style="margin:4px 0">${short(d)} 점수는 버전 ${used.v} 가중치로 계산됐습니다(이미 나온 점수는 바꾸지 않습니다).</div>` : ""}
       ${last && last.decision === "유지" && last.version === v.v && last.summary && last.summary !== v.summary ? `<div class="wsum">${esc(last.date)} 점검: ${esc(last.summary)}</div>` : ""}
       <div class="wgrp"><div class="wgl">풍향계 = 심리 <b>${pctW(+v.wind.sent)}%</b>${Math.abs(sDl) > 1e-9 ? `<em class="${sDl > 0 ? "up" : "down"}">${sDl > 0 ? "▲" : "▼"}${pctW(Math.abs(sDl))}%p</em>` : ""} + 유동성 <b>${pctW(1 - +v.wind.sent)}%</b></div></div>
       <div class="wgrp"><div class="wgl">트렌드캐치 9개</div><div class="wtags">${row("tc")}</div></div>

@@ -1,6 +1,6 @@
 """증시 풍향계: 트렌드캐치(거꾸로)와 유동성을 0~100 하나의 숫자로.
 
-풍향계 = 60% × 심리 바람 + 40% × 유동성 바람
+풍향계 = 심리 비중 × 심리 바람 + 유동성 비중 × 유동성 바람 (비중은 data/weights.json, 처음 60 : 40)
   심리 바람   = (5 − 트렌드캐치) ÷ 4 × 100   공포일수록 높음 (역발상)
   유동성 바람 = (유동성 − 1) ÷ 4 × 100        돈이 넉넉할수록 높음
 → 정리하면 65 − 15 × 트렌드캐치 + 10 × 유동성 (사분면 '기회' 모서리 100, '위험' 모서리 0)
@@ -15,8 +15,10 @@ import sys
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import weights as WM  # noqa: E402
+
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-W_SENT, W_LIQ = 0.6, 0.4
 ZONES = [  # (하한, 이름, 행동 힌트, 색)
     (0, "강한 역풍", "매우 조심", "#ef4444"),
     (30, "역풍", "조심", "#f59e6b"),
@@ -55,12 +57,13 @@ def build(series_path=None, out_path=None):
     s = json.load(open(series_path, encoding="utf-8"))
     df = pd.DataFrame(s["cols"], index=pd.to_datetime(s["dates"]))
     tc, lq = df["tc"].astype(float), df["lq"].astype(float)
-    sent = (5 - tc) / 4 * 100
-    liq = (lq - 1) / 4 * 100
-    w = (W_SENT * sent + W_LIQ * liq).clip(0, 100)
+    # 심리·유동성 비중은 data/weights.json 의 버전(적용 시작일별)을 따른다
+    Wt = WM.load()
+    w, sent, liq, _ = WM.wind_parts(tc, lq, W=Wt)
     start = w.first_valid_index()
+    cur = WM.current(Wt)
 
-    out = {"formula": "65 − 15 × 트렌드캐치 + 10 × 유동성", "weights": {"sent": W_SENT, "liq": W_LIQ},
+    out = {"formula": WM.formula(cur)[0], "weights": {"sent": cur["wind"]["sent"], "liq": round(1 - cur["wind"]["sent"], 4)},
            "zones": [{"from": z[0], "name": z[1], "act": z[2], "color": z[3]} for z in ZONES],
            "start": f"{start:%Y-%m-%d}", "end": f"{df.index[-1]:%Y-%m-%d}",
            "dates": [f"{d:%Y-%m-%d}" for d in df.index],

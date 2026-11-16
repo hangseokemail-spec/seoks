@@ -198,8 +198,7 @@ LQ = {  # 유동성 11개 (가중평균)
     "nfci":   lambda v: s_lo(v, (-0.5, -0.2, 0.2001, 0.5001)),
     "y10":    None,  # s_y10 (수준+13주 변화)
 }
-LQ_W = {"fed": 14, "nl": 14, "m2": 7, "effr": 10, "hy": 8.75, "dxy": 6.25,
-        "margin": 10, "bank": 10, "vol": 5.33, "nfci": 8.0, "y10": 6.67}
+# 가중치는 data/weights.json (scripts/weights.py) — 2주마다 Claude Fable이 점검
 
 
 def label_tc(x):
@@ -360,14 +359,13 @@ def build_series():
             col["s_lq_y10"] = pd.Series([s_y10(a, b) for a, b in zip(col["lq_y10"], col["lq_y10_chg"])], index=dates, dtype=float)
         else:
             col[f"s_lq_{k}"] = col[f"lq_{k}"].map(lambda x, f=f: f(x) if pd.notna(x) else np.nan)
-    tcs = pd.DataFrame({k: col[f"s_tc_{k}"] for k in TC})
-    col["tc_n"] = tcs.notna().sum(axis=1)
-    col["tc"] = tcs.mean(axis=1).round(1).where(col["tc_n"] >= 5)
-    lqs = pd.DataFrame({k: col[f"s_lq_{k}"] for k in LQ})
-    w = pd.Series(LQ_W)
-    avail_w = lqs.notna().mul(w, axis=1).sum(axis=1)
-    col["lq_w"] = avail_w
-    col["lq"] = (lqs.fillna(0).mul(w, axis=1).sum(axis=1) / avail_w).round(1).where(avail_w >= 70)
+    # 종합 점수: data/weights.json 의 가중치 버전(적용 시작일별)을 따른다 — scripts/weights.py
+    import weights as WM
+    comp = WM.composite(pd.DataFrame({f"s_tc_{k}": col[f"s_tc_{k}"] for k in TC} | {f"s_lq_{k}": col[f"s_lq_{k}"] for k in LQ}, index=dates))
+    col["tc_n"] = comp["tc_n"]
+    col["tc"] = comp["tc"]
+    col["lq_w"] = comp["lq_w"]
+    col["lq"] = comp["lq"]
 
     df = pd.DataFrame(col, index=dates)
     return df, obs, {"spy_last": spy.index[-1], "naver_last": dates[-1]}

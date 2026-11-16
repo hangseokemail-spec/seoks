@@ -568,3 +568,22 @@ table.zt tr.tot td{color:var(--sub)}
   .verdict .vt{font-size:16.5px}
   .zr{grid-template-columns:1fr}
 }
+
+/* 가중치 점검 카드 */
+.wts .wvh{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13.5px;margin:6px 0 8px}
+.wts .wsum{background:#22396a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14.5px;line-height:1.6;margin:6px 0;word-break:keep-all}
+.wts .wgrp{margin-top:10px}
+.wts .wgl{font-size:13px;color:var(--sub);font-weight:700;margin-bottom:5px}
+.wts .wgl b{color:var(--text);font-size:15px}
+.wts em{font-style:normal;font-size:12px;margin-left:3px}
+.wts em.up,.wtag.up em{color:#3ee0a1}.wts em.down,.wtag.down em{color:#ff7b8a}
+.wtags{display:flex;flex-wrap:wrap;gap:6px}
+.wtag{font-size:12.5px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:4px 8px;color:var(--sub)}
+.wtag b{color:var(--text);font-weight:700}
+.wtag.up{border-color:#3ee0a1}.wtag.down{border-color:#ff7b8a}
+.wdet{margin-top:10px;font-size:13.5px}
+.wdet summary{cursor:pointer;color:var(--gold2);font-weight:700}
+.wdet ul{margin:6px 0 0 18px;line-height:1.6}
+.wdet table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12.5px}
+.wdet td{border-top:1px solid var(--line);padding:5px 6px;vertical-align:top}
+.wdet tr.hit td{background:#2c4a82}

@@ -55,7 +55,7 @@ COLS = ["날짜", "풍향계", "풍향계 구간", "행동 힌트", "총평", "�
         "S&P500 50일선 위%", "S&P500 200일선 위%",
         "시장 한 줄", "시장의 변화 카드", "핵심 코멘트 1", "핵심 코멘트 2", "핵심 코멘트 3", "앞으로 이렇게 되면",
         "트렌드캐치 종합의견", "트렌드캐치 코멘트", "유동성 종합의견", "유동성 코멘트", "판단 보조(사분면)",
-        "대표 신고가", "대표 신고가 설명", "사이트에서 보기"]
+        "대표 신고가", "대표 신고가 설명", "사이트에서 보기", "가중치 버전"]
 
 
 def pts(arr):
@@ -77,6 +77,13 @@ def main():
     a200 = load(os.path.join(DATA, "hist", "sp500_a200.json"), {})
     dates, c = s["dates"], s["cols"]
     widx = {d: k for k, d in enumerate(wind.get("dates") or [])}
+    vers = (load(os.path.join(DATA, "weights.json"), {}) or {}).get("versions") or []
+    def ver(d):
+        v = None
+        for x in vers:
+            if x["from"] <= d:
+                v = x
+        return f"v{v['v']} (심리 {round(v['wind']['sent'] * 100)}%)" if v else ""
     col = lambda k, i: (c.get(k) or [None] * len(dates))[i] if i >= 0 else None
     chg = lambda k, i: round((col(k, i) / col(k, i - 1) - 1) * 100, 2) if i > 0 and col(k, i) and col(k, i - 1) else None
     rows = []
@@ -109,7 +116,7 @@ def main():
                      cm.get("quad"),
                      ", ".join(f"{t}({F[t].get('tag', '')})" for t in F),
                      " | ".join(f"{t}: {F[t].get('bm', '')} · {F[t].get('e1', '')} · {F[t].get('e2', '')} · 포인트 {F[t].get('point', '')} · 주의 {F[t].get('caution', '')}" for t in F),
-                     f"{SITE}?tab=wind&date={d}"])
+                     f"{SITE}?tab=wind&date={d}", ver(d)])
     rows.reverse()
     out = os.path.join(DATA, "db.csv")
     with open(out, "w", encoding="utf-8", newline="") as f:

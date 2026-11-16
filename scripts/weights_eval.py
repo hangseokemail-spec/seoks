@@ -1,0 +1,294 @@
+"""2주 가중치 점검 도구.  (Opus가 근거 자료를 만들고, Claude Fable이 후보를 시험해 결정하고, Opus가 그대로 적용)
+
+python3 scripts/weights_eval.py brief               → data/raw/weights_brief.json  (근거 자료: 지표별·종합 점수와 이후 지수의 관계)
+python3 scripts/weights_eval.py test  후보.json      → 후보 가중치였다면 종합 점수·풍향계가 이후 지수를 얼마나 맞혔을지 + 한도 검사
+python3 scripts/weights_eval.py apply 결정.json      → 한도 검사 통과 시 data/weights.json 에 새 버전(다음 거래일부터) 또는 '유지' 기록
+python3 scripts/weights_eval.py due                 → 오늘(한국 시각)이 격주 점검일이면 "yes", 아니면 "no" (정기 작업이 처음에 확인)
+
+후보.json / 결정.json 형식:
+{"decision": "변경" | "유지", "by": "Claude Fable 5.2",
+ "summary": "초보자용 3~5문장: 무엇을 왜 바꿨는지(또는 왜 유지했는지)",
+ "tc": {"fg": 11.1, ...9개, 합 100 기준 %}, "lq": {"fed": 14, ...11개}, "wind": {"sent": 0.6},
+ "reasons": {"tc.vix" | "lq.hy" | "wind": "바꾼 이유(숫자 근거)"}}
+
+'맞힌 정도' = 순위상관(Spearman, −1~+1). 매주 마지막 거래일의 점수와 그날부터 20거래일(약 1개월)·60거래일(약 3개월) 뒤 지수 수익률.
+트렌드캐치는 역발상이라 '−'가 맞는 방향(점수 높을수록 그 뒤 수익 낮음), 유동성·풍향계는 '+'가 맞는 방향.
+"""
+import datetime as dt
+import json
+import os
+import sys
+
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import weights as WM  # noqa: E402
+
+ROOT = WM.ROOT
+DATA = os.path.join(ROOT, "data")
+RAW = os.path.join(DATA, "raw")
+HS = (20, 60)
+IDX = {"spx": "S&P500", "ndx": "나스닥100", "kospi": "코스피"}
+TC_NAME = {"fg": "공포탐욕", "aaii": "AAII 강세−약세", "vix": "VIX", "hy": "하이일드 스프레드", "pc": "풋콜 비율",
+           "margin": "신용융자 YoY", "a200": "S&P500 200일선 위 비율", "rsi": "RSI(14일)", "dev": "200일선 이격도"}
+LQ_NAME = {"fed": "연준 총자산 3개월 변화", "nl": "순유동성 3개월 변화", "m2": "M2 YoY", "effr": "기준금리 3개월 변화",
+           "hy": "하이일드 스프레드", "dxy": "달러 6개월 변화", "margin": "신용융자 YoY", "bank": "상업은행 신용 YoY",
+           "vol": "거래량(20일 평균 대비)", "nfci": "NFCI 금융여건", "y10": "10년물 금리"}
+
+
+def r(x, n=3):
+    return None if x is None or (isinstance(x, float) and np.isnan(x)) else round(float(x), n)
+
+
+def load_df():
+    s = json.load(open(os.path.join(DATA, "series.json"), encoding="utf-8"))
+    return pd.DataFrame(s["cols"], index=pd.to_datetime(s["dates"]))
+
+
+def weekly_idx(df):
+    """마지막 날부터 5거래일 간격(주 1회) 표본."""
+    n = len(df)
+    return sorted(range(n - 1, -1, -5))
+
+
+def ic(score, ret):
+    m = score.notna() & ret.notna()
+    n = int(m.sum())
+    if n < 20 or score[m].nunique() < 2:
+        return None, n
+    return r(score[m].corr(ret[m], method="spearman")), n
+
+
+def fwd(df, ix, h):
+    px = df[ix].astype(float)
+    return px.shift(-h) / px - 1
+
+
+def sig(v, n, h):
+    """겹치는 기간을 감안한 대략적 유의 기준: |IC| > 2 / √(n ÷ (h/5))"""
+    if v is None or n < 10:
+        return None
+    return bool(abs(v) > 2 / np.sqrt(max(n / max(h / 5, 1), 1)))
+
+
+def score_stats(df, sc, sign):
+    """점수 하나(sc, 날짜 index)의 이후 수익률 관계. sign: 맞는 방향(−1 트렌드캐치, +1 유동성·풍향계)."""
+    wk = weekly_idx(df)
+    out = {}
+    for ix in IDX:
+        for h in HS:
+            f = fwd(df, ix, h)
+            a, b = sc.iloc[wk], f.iloc[wk]
+            v, n = ic(a, b)
+            m = a.notna() & b.notna()
+            idx = a[m].index
+            half = len(idx) // 2
+            v1, _ = ic(a[idx[:half]], b[idx[:half]]) if half >= 20 else (None, 0)
+            v2, _ = ic(a[idx[half:]], b[idx[half:]]) if half >= 20 else (None, 0)
+            rec = idx[-52:]
+            v3, n3 = ic(a[rec], b[rec]) if len(rec) >= 30 else (None, len(rec))
+            out[f"{ix}_{h}"] = {"ic": v, "n주": n, "맞는방향_강도": r(v * sign) if v is not None else None, "유의": sig(v, n, h),
+                                "앞절반": v1, "뒤절반": v2, "최근52주": v3}
+    return out
+
+
+def composite_eval(df, ver):
+    c = WM.composite(df, ver=ver)
+    w, _, _, _ = WM.wind_parts(c["tc"], c["lq"], ver=ver)
+    res = {"트렌드캐치": score_stats(df, c["tc"], -1), "유동성": score_stats(df, c["lq"], +1), "풍향계": score_stats(df, w, +1)}
+    # 풍향계 구간별 60거래일 뒤 S&P500 평균 (매일 기준)
+    f60 = fwd(df, "spx", 60) * 100
+    z = pd.cut(w, [-1, 30, 45, 55, 70, 101], labels=["강한 역풍", "역풍", "무풍", "순풍", "강한 순풍"], right=False)
+    zs = {}
+    for nm in ["강한 역풍", "역풍", "무풍", "순풍", "강한 순풍"]:
+        m = (z == nm) & f60.notna()
+        zs[nm] = {"평균%": r(f60[m].mean(), 2) if m.any() else None, "오른비율%": r((f60[m] > 0).mean() * 100, 0) if m.any() else None, "일수": int(m.sum())}
+    res["풍향계_구간별_60거래일뒤_S&P500"] = zs
+    res["풍향계_마지막값"] = r(w.dropna().iloc[-1], 1) if w.notna().any() else None
+    return res
+
+
+def headline(ev):
+    """한눈에 비교할 핵심 숫자(맞는 방향 강도, 클수록 좋음)."""
+    g = lambda k, key: (ev[k].get(key) or {}).get("맞는방향_강도")
+    return {k: {kk: g(k, kk) for kk in ("spx_20", "spx_60", "ndx_60", "kospi_20")} for k in ("트렌드캐치", "유동성", "풍향계")}
+
+
+def check(cand, cur, rules):
+    """한도 검사. 반환: (통과 여부, 오류 목록, 새 가중치(%로 정규화))"""
+    errs = []
+    new = {}
+    for grp, keys in (("tc", WM.TC_KEYS), ("lq", WM.LQ_KEYS)):
+        d = cand.get(grp) or {}
+        miss = [k for k in keys if k not in d]
+        if miss:
+            errs.append(f"{grp}: 빠진 지표 {miss}")
+            continue
+        if any(float(d[k]) <= 0 for k in keys):
+            errs.append(f"{grp}: 0 이하 가중치는 안 됨(지표를 빼지 않는다)")
+            continue
+        tot = sum(float(d[k]) for k in keys)
+        if abs(tot - 100) > 0.5:
+            errs.append(f"{grp}: 가중치 합이 {tot:.2f} — 100이 되게 맞춰 주세요(올린 만큼 다른 곳에서 내리기)")
+        nn = WM.norm(d, keys)
+        cc = WM.norm(cur[grp], keys)
+        R = rules[grp]
+        for k in keys:
+            if not R["min"] - 1e-6 <= nn[k] <= R["max"] + 1e-6:
+                errs.append(f"{grp}.{k}: {nn[k]:.2f}% — 허용 범위 {R['min']}~{R['max']}% 밖")
+            if abs(nn[k] - cc[k]) > R["max_step"] + 1e-6:
+                errs.append(f"{grp}.{k}: {cc[k]:.2f}% → {nn[k]:.2f}% — 한 번에 ±{R['max_step']}%p까지")
+        to = sum(max(nn[k] - cc[k], 0) for k in keys)
+        if to > rules["max_turnover"] + 1e-6:
+            errs.append(f"{grp}: 옮긴 가중치 합 {to:.2f}%p — 한 번에 {rules['max_turnover']}%p까지")
+        for k in keys:
+            if abs(nn[k] - cc[k]) >= 0.5 and not (cand.get("reasons") or {}).get(f"{grp}.{k}"):
+                errs.append(f"{grp}.{k}: 바꿨으면 reasons[\"{grp}.{k}\"]에 이유가 있어야 함")
+        new[grp] = {k: round(nn[k], 2) for k in keys}
+    ws = (cand.get("wind") or {}).get("sent")
+    R = rules["wind_sent"]
+    if ws is None:
+        errs.append("wind.sent 없음")
+    else:
+        ws = float(ws)
+        if not R["min"] - 1e-9 <= ws <= R["max"] + 1e-9:
+            errs.append(f"wind.sent {ws} — 허용 범위 {R['min']}~{R['max']} 밖")
+        if abs(ws - cur["wind"]["sent"]) > R["max_step"] + 1e-9:
+            errs.append(f"wind.sent {cur['wind']['sent']} → {ws} — 한 번에 ±{R['max_step']}까지")
+        if abs(ws - cur["wind"]["sent"]) > 1e-9 and not (cand.get("reasons") or {}).get("wind"):
+            errs.append("wind: 바꿨으면 reasons.wind에 이유가 있어야 함")
+        new["wind"] = {"sent": round(ws, 4), "liq": round(1 - ws, 4)}
+    if not (cand.get("summary") or "").strip():
+        errs.append("summary(초보자용 설명) 없음")
+    return not errs, errs, new
+
+
+def next_trading_day(d):
+    d = d + dt.timedelta(days=1)
+    while d.weekday() >= 5:
+        d += dt.timedelta(days=1)
+    return d
+
+
+def cmd_brief():
+    df = load_df()
+    W = WM.load()
+    cur = WM.current(W)
+    ana = json.load(open(os.path.join(DATA, "analysis.json"), encoding="utf-8"))
+    wk = weekly_idx(df)
+    ind = {}
+    for grp, keys, names, sign in (("tc", WM.TC_KEYS, TC_NAME, -1), ("lq", WM.LQ_KEYS, LQ_NAME, +1)):
+        cw = WM.norm(cur[grp], keys)
+        for k in keys:
+            sc = df[f"s_{grp}_{k}"].astype(float)
+            a = sc.iloc[wk]
+            long = ((ana.get("items") or {}).get(f"{grp}_{k}") or {}).get("spx") or {}
+            ind[f"{grp}.{k}"] = {
+                "이름": names[k], "그룹": "트렌드캐치" if grp == "tc" else "유동성", "맞는방향": "−(역발상)" if sign < 0 else "+",
+                "지금_가중치%": round(cw[k], 2), "지금_점수": r(sc.dropna().iloc[-1], 1) if sc.notna().any() else None,
+                "점수있는_주%": r(a.notna().mean() * 100, 0), "점수_바뀐_횟수(주)": int((a.dropna().diff() != 0).sum()),
+                "점수_종류": sorted(set(int(x) for x in a.dropna().unique())),
+                "2023이후": score_stats(df, sc, sign),
+                "장기(2010~, analysis.json)": {"시작": long.get("start"), "ic_4주": (long.get("ic") or {}).get("4"),
+                                              "ic_13주": (long.get("ic") or {}).get("13"), "유의_13주": (long.get("sig") or {}).get("13"),
+                                              "지난13주_반영": long.get("past13"), "역할": long.get("role"),
+                                              "방향": long.get("direction"), "앞뒤절반_같은방향": long.get("stable"), "절반별": long.get("half")} if long else "장기 자료 없음(과거 자료를 받을 수 없는 지표)",
+            }
+    ev = composite_eval(df, cur)
+    out = {
+        "_안내": "Claude Fable이 가중치를 판단할 근거 자료. 숫자 뜻은 WEIGHTS.md 2절. '맞는방향_강도'가 클수록 그 점수가 이후 지수를 잘 맞혔다는 뜻(트렌드캐치는 부호를 뒤집어 계산).",
+        "자료기간": f"{df.index[0]:%Y-%m-%d} ~ {df.index[-1]:%Y-%m-%d} (매주 1회 표본, 20·60거래일 뒤 수익률)",
+        "지금_가중치": {"버전": cur["v"], "적용_시작": cur["from"], "정한_날": cur["set"], "정한_이": cur["by"],
+                     "트렌드캐치%": {k: round(v, 2) for k, v in WM.norm(cur["tc"], WM.TC_KEYS).items()},
+                     "유동성%": {k: round(v, 2) for k, v in WM.norm(cur["lq"], WM.LQ_KEYS).items()},
+                     "풍향계_심리비중": cur["wind"]["sent"], "풍향계_식": WM.formula(cur)[0]},
+        "한도": W["rules"],
+        "지금_가중치_성적": ev, "지금_가중치_핵심": headline(ev),
+        "지표별": ind,
+        "지난_점검": W.get("reviews", [])[-6:],
+        "적용_시작일(새 버전일 때)": f"{next_trading_day(df.index[-1].date()):%Y-%m-%d}",
+    }
+    os.makedirs(RAW, exist_ok=True)
+    p = os.path.join(RAW, "weights_brief.json")
+    json.dump(out, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    print(json.dumps({"brief": os.path.relpath(p, ROOT), "기간": out["자료기간"], "지금_핵심": out["지금_가중치_핵심"]}, ensure_ascii=False))
+
+
+def cmd_test(path):
+    df = load_df()
+    W = WM.load()
+    cur = WM.current(W)
+    cand = json.load(open(path, encoding="utf-8"))
+    ok, errs, new = check(cand, cur, W["rules"])
+    log = os.path.join(RAW, "weights_tests.log")
+    os.makedirs(RAW, exist_ok=True)
+    n_before = sum(1 for _ in open(log, encoding="utf-8")) if os.path.exists(log) else 0
+    with open(log, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"at": dt.datetime.now().isoformat(timespec="seconds"), "file": path, "ok": ok}, ensure_ascii=False) + "\n")
+    out = {"한도검사_통과": ok, "오류": errs, "이번_점검_시험_횟수": n_before + 1}
+    if "tc" in new and "lq" in new and "wind" in new:
+        ver = {"tc": new["tc"], "lq": new["lq"], "wind": new["wind"]}
+        a, b = composite_eval(df, cur), composite_eval(df, ver)
+        ha, hb = headline(a), headline(b)
+        out["핵심_비교(맞는방향_강도, 클수록 좋음)"] = {k: {kk: {"지금": ha[k][kk], "후보": hb[k][kk]} for kk in ha[k]} for k in ha}
+        out["후보_풍향계_구간별_60거래일뒤_S&P500"] = b["풍향계_구간별_60거래일뒤_S&P500"]
+        out["지금_풍향계_구간별_60거래일뒤_S&P500"] = a["풍향계_구간별_60거래일뒤_S&P500"]
+        out["후보_풍향계_절반별(spx_60)"] = {kk: b["풍향계"]["spx_60"][kk] for kk in ("앞절반", "뒤절반", "최근52주")}
+        out["지금_풍향계_절반별(spx_60)"] = {kk: a["풍향계"]["spx_60"][kk] for kk in ("앞절반", "뒤절반", "최근52주")}
+        out["주의"] = "같은 자료로 여러 번 맞춰 보면 과거에만 잘 맞는 가중치가 됩니다(과적합). 앞절반·뒤절반·최근52주가 모두 나아지는지, 장기(2010~) 근거와 같은 방향인지 보세요."
+    print(json.dumps(out, ensure_ascii=False, indent=1))
+    sys.exit(0 if ok else 1)
+
+
+def set_next(W, today):
+    """다음 점검 예정일(격주 일요일, rules.schedule.anchor 기준)을 적어 둔다."""
+    sc = W.setdefault("rules", {}).setdefault("schedule", {"every_days": 14, "anchor": "2026-11-29"})
+    d0, t = dt.date.fromisoformat(sc["anchor"]), dt.date.fromisoformat(today)
+    k = max(0, -(-((t - d0).days + 1) // sc["every_days"]))
+    sc["next"] = (d0 + dt.timedelta(days=k * sc["every_days"])).isoformat()
+
+
+def is_review_day(today=None):
+    W = WM.load()
+    sc = W["rules"].get("schedule") or {"every_days": 14, "anchor": "2026-11-29"}
+    t = dt.date.fromisoformat(today) if today else dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).date()
+    return (t - dt.date.fromisoformat(sc["anchor"])).days % sc["every_days"] == 0
+
+
+def cmd_apply(path):
+    df = load_df()
+    W = WM.load()
+    cur = WM.current(W)
+    dec = json.load(open(path, encoding="utf-8"))
+    today = dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime("%Y-%m-%d")
+    by = dec.get("by") or "Claude Fable"
+    if dec.get("decision") == "유지":
+        if not (dec.get("summary") or "").strip():
+            sys.exit("유지 결정에도 summary(이유)가 필요합니다")
+        W.setdefault("reviews", []).append({"date": today, "by": by, "decision": "유지", "version": cur["v"], "summary": dec["summary"].strip()})
+        set_next(W, today)
+        json.dump(W, open(WM.PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        print(json.dumps({"applied": "유지", "version": cur["v"]}, ensure_ascii=False))
+        return
+    ok, errs, new = check(dec, cur, W["rules"])
+    if not ok:
+        print(json.dumps({"applied": False, "오류": errs}, ensure_ascii=False, indent=1))
+        sys.exit(1)
+    start = next_trading_day(df.index[-1].date()).strftime("%Y-%m-%d")
+    a, b = headline(composite_eval(df, cur)), headline(composite_eval(df, {"tc": new["tc"], "lq": new["lq"], "wind": new["wind"]}))
+    v = {"v": cur["v"] + 1, "from": start, "set": today, "by": by, "summary": dec["summary"].strip(),
+         "tc": new["tc"], "lq": new["lq"], "wind": new["wind"], "reasons": dec.get("reasons") or {},
+         "evidence": {"이전": a, "새": b}}
+    W["versions"].append(v)
+    set_next(W, today)
+    W.setdefault("reviews", []).append({"date": today, "by": by, "decision": "변경", "version": v["v"], "from": start, "summary": v["summary"]})
+    json.dump(W, open(WM.PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    print(json.dumps({"applied": "변경", "version": v["v"], "from": start}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2 or sys.argv[1] not in ("brief", "test", "apply", "due"):
+        sys.exit(__doc__)
+    {"brief": lambda: cmd_brief(), "test": lambda: cmd_test(sys.argv[2]), "apply": lambda: cmd_apply(sys.argv[2]),
+     "due": lambda: print("yes" if is_review_day(sys.argv[2] if len(sys.argv) > 2 else None) else "no")}[sys.argv[1]]()

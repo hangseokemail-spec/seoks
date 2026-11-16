@@ -14,6 +14,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import weights as WM  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 RAW = os.path.join(DATA, "raw")
@@ -51,7 +54,6 @@ RULES = {
     "트렌드캐치_구간": "4.5~5 광기(분할 매도) · 3.5~4.5 과열(매도 준비) · 2.5~3.5 중립(매매 보류) · 1.5~2.5 불안(분할 매수) · 1~1.5 공포(적극 매수). 점수가 높을수록 탐욕(역발상으로 읽음)",
     "유동성_구간": "4.5~5 풍부 · 3.5~4.5 우호 · 2.5~3.5 중립 · 1.5~2.5 긴축 · 1~1.5 경색",
     "풍향계_구간": "0~30 강한 역풍(매우 조심) · 30~45 역풍(조심) · 45~55 무풍(관망) · 55~70 순풍(우호) · 70~100 강한 순풍(적극)",
-    "풍향계_식": "65 − 15 × 트렌드캐치 + 10 × 유동성 (= 60% 심리 바람 + 40% 유동성 바람)",
     "10년물_점수": "13주 변화 ≤−40bp 5 / −40~−10 4 / ±10 3 / +10~+40 2 / ≥+40 1, 금리 4.5% 이상이면 −1점",
     "달러6개월_점수": "≤−5% 5 / −5~−2 4 / ±2 3 / +2~+5 2 / ≥+5% 1",
     "EFFR_점수": "−0.5%p 이하 5 / −0.5~−0.1 4 / ±0.1 3 / +0.1~+0.5 2 / ≥+0.5 1",
@@ -160,10 +162,14 @@ def main():
         return {"ic_13주뒤_S&P500": (r.get("ic") or {}).get("13"), "유의": (r.get("sig") or {}).get("13"),
                 "지난13주_반영": r.get("past13"), "역할": r.get("role"), "방향": r.get("direction"), "시작": r.get("start")}
 
-    tc_items = [{"key": k, "이름": n, "값": v(f"tc_{k}"), "점수": v(f"s_tc_{k}"), "점수_1주전": v(f"s_tc_{k}", iw),
+    CW = WM.current()
+    wtc, wlq = WM.norm(CW["tc"], WM.TC_KEYS), WM.norm(CW["lq"], WM.LQ_KEYS)
+    fstr, (fa, fb, fc) = WM.formula(CW)
+    RULES["풍향계_식"] = f"{fstr} (= 심리 바람 {CW['wind']['sent'] * 100:.0f}% + 유동성 바람 {(1 - CW['wind']['sent']) * 100:.0f}%, 가중치 버전 v{CW['v']} · {CW['from']}부터)"
+    tc_items = [{"key": k, "이름": n, "가중치%": round(wtc[k], 1), "값": v(f"tc_{k}"), "점수": v(f"s_tc_{k}"), "점수_1주전": v(f"s_tc_{k}", iw),
                  "기준일": (v(f"obs_{k}") or asof.get(ak)) if ak else date, "단위": u, "예측력": a13(f"tc_{k}")}
                 for k, n, ak, u in TC_ITEMS]
-    lq_items = [{"key": k, "카테고리": f"{cat} {LQ_CAT[cat]}", "가중치": w, "이름": n, "값": v(f"lq_{k}"), "점수": v(f"s_lq_{k}"),
+    lq_items = [{"key": k, "카테고리": f"{cat} {LQ_CAT[cat]}", "가중치": round(wlq[k], 2), "이름": n, "값": v(f"lq_{k}"), "점수": v(f"s_lq_{k}"),
                  "점수_1주전": v(f"s_lq_{k}", iw), "기준일": asof.get(ak) if ak else date, "단위": u, "예측력": a13(f"lq_{k}")}
                 for k, cat, w, n, ak, u in LQ_ITEMS]
     extra = {"10년물_13주변화_bp": v("lq_y10_chg"), "EFFR_수준": v("lq_effr_level"), "순유동성_수준_십억달러": v("lq_nl_level")}
@@ -192,9 +198,9 @@ def main():
     # 시나리오용 경계값: 지금 유동성(트렌드캐치)이 그대로일 때 풍향계 45·55·70·30이 되는 트렌드캐치(유동성) 값
     bounds = None
     if tc is not None and lq is not None:
-        bounds = {"설명": "풍향계 = 65 − 15×트렌드캐치 + 10×유동성. 한쪽이 그대로일 때 다른 쪽이 이 값이 되면 해당 경계에 닿음",
-                  "유동성 그대로일 때 트렌드캐치": {f"풍향계 {w}": round((65 + 10 * lq - w) / 15, 2) for w in (30, 45, 55, 70)},
-                  "트렌드캐치 그대로일 때 유동성": {f"풍향계 {w}": round((w - 65 + 15 * tc) / 10, 2) for w in (30, 45, 55, 70)}}
+        bounds = {"설명": f"풍향계 = {fstr}. 한쪽이 그대로일 때 다른 쪽이 이 값이 되면 해당 경계에 닿음",
+                  "유동성 그대로일 때 트렌드캐치": {f"풍향계 {w}": round((fa + fc * lq - w) / fb, 2) for w in (30, 45, 55, 70)},
+                  "트렌드캐치 그대로일 때 유동성": {f"풍향계 {w}": round((w - fa + fb * tc) / fc, 2) for w in (30, 45, 55, 70)}}
 
     out = {
         "_안내": "Fable(해석·편집 담당)은 이 파일의 사실·숫자만 사용한다. 여기 없는 원인·실적·뉴스는 쓰지 않는다.",

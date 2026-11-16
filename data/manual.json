@@ -59,6 +59,13 @@
    "bear": 48.4,
    "spread": -14.3,
    "src": "AAII"
+  },
+  {
+   "date": "2026-11-12",
+   "bull": 30.8,
+   "bear": 51.4,
+   "spread": -20.6,
+   "src": "AAII"
   }
  ],
  "pc": [

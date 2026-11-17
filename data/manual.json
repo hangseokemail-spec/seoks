@@ -15,6 +15,11 @@
    "date": "2026-11-05",
    "value": 20,
    "src": "Finwire (CNN Fear & Greed 인용)"
+  },
+  {
+   "date": "2026-11-16",
+   "value": 31,
+   "src": "fgscore.com (CNN Fear & Greed 인용, 11/17 개장 전 표시값)"
   }
  ],
  "aaii": [

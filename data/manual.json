@@ -20,6 +20,11 @@
    "date": "2026-11-16",
    "value": 31,
    "src": "fgscore.com (CNN Fear & Greed 인용, 11/17 개장 전 표시값)"
+  },
+  {
+   "date": "2026-11-18",
+   "value": 25,
+   "src": "Benzinga (CNN Fear & Greed 인용, 11/19 개장 전 보도)"
   }
  ],
  "aaii": [
@@ -71,6 +76,13 @@
    "bear": 51.4,
    "spread": -20.6,
    "src": "AAII"
+  },
+  {
+   "date": "2026-11-19",
+   "bull": 33.3,
+   "bear": 42.2,
+   "spread": -8.9,
+   "src": "AAII (11/18 마감 주간)"
   }
  ],
  "pc": [
@@ -82,6 +94,11 @@
   {
    "date": "2026-11-13",
    "value": 0.85,
+   "src": "Cboe daily market statistics"
+  },
+  {
+   "date": "2026-11-18",
+   "value": 1.05,
    "src": "Cboe daily market statistics"
   }
  ],

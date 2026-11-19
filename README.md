@@ -17,6 +17,7 @@
 - `scripts/brief.py` — Fable에게 넘길 자료 묶음(`data/raw/brief_<날짜>.json`, 커밋 안 됨)
 - `scripts/check_comments.py` — 코멘트 형식·숫자 대조 검사
 - `scripts/export_db.py` — 날짜별 기록 DB `data/db.csv` (구글 시트 'Seoks 날짜별 기록'이 IMPORTDATA로 읽음)
+- `GUIDE.md` — 작업 지침서 개요(원칙·역할·일정·지침서 갱신 규칙). `scripts/guide_export.py`가 GUIDE·DAILY·FABLE·WEIGHTS와 현재 가중치를 한 문서로 묶어 구글 드라이브 'AI › 증시현황판'에 올림(바뀔 때마다 새 판, 이전 판은 '지난 판' 폴더). 기록은 `data/guide_sync.json`
 - `data/weights.json` — 지표 가중치와 풍향계 심리·유동성 비중의 버전 기록(적용 시작일별). 매주 토요일 점검(주간·월간·분기, 조정 폭 분기 > 월간 > 주간) — **가장 최신 Claude 모델**(지금 Fable 5.2)이 결정, Opus가 적용
 - `scripts/weights.py` — 가중치 버전을 읽어 종합 점수·풍향계 계산 (collect.py·wind.py·brief.py가 사용)
 - `scripts/weights_eval.py` / `WEIGHTS.md` — 가중치 점검: 근거 자료(brief: 풍향계 방향 적중 점검 + 지표별 관계) → 결정 모델이 후보 시험·결정 → Opus가 그대로 적용(apply)

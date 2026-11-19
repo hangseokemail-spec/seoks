@@ -19,9 +19,10 @@ git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
 |---|---|---|
 | 1~5 | **Opus 5.5** (메인 세션) | 준비 · 수집 · 웹 지표 보충 · 웹 사실 조사 · 자료 묶음 |
 | 6 | **Fable** (하위 에이전트, `model: "fable"`) | 해석(코멘트 작성) · 편집(다듬기·자체 검사) · 회사 한 줄 설명 — 지침 `FABLE.md` |
-| 7~10 | **Opus 5.5** (메인 세션) | 검사 · 저장 · 다른 사람 알림 · 마지막 메시지 |
+| 7~10 | **Opus 5.5** (메인 세션) | 검사 · 저장 · 다른 사람 알림 · 지침서 동기화 · 마지막 메시지 |
 
-- **가중치**(트렌드캐치·유동성 지표 비중, 풍향계 심리·유동성 비중)는 `data/weights.json`이 정하고, 매주 토요일 별도 예약 작업(주간·월간·분기 점검)에서 **가장 최신 Claude 모델(지금 Fable 5.2)만** 결정하고 Opus가 적용다(`WEIGHTS.md`). 매일 작업에서는 가중치를 건드리지 않는다. 풍향계 식은 brief의 `rules.풍향계_식`을 따른다.
+- **가중치**(트렌드캐치·유동성 지표 비중, 풍향계 심리·유동성 비중)는 `data/weights.json`이 정하고, 매주 토요일 별도 예약 작업(주간·월간·분기 점검)에서 **가장 최신 Claude 모델(지금 Fable 5.2)만** 결정하고 Opus가 적용한다(`WEIGHTS.md`). 매일 작업에서는 가중치를 건드리지 않는다. 풍향계 식은 brief의 `rules.풍향계_식`을 따른다.
+- **작업 지침서**: 지침 파일(`GUIDE.md`·`DAILY.md`·`FABLE.md`·`WEIGHTS.md`)이나 가중치가 바뀌면 구글 드라이브 'AI › 증시현황판' 폴더의 지침서를 새 판으로 바꾼다(`GUIDE.md` 7절). 지침을 고친 세션은 그 자리에서, 매일 작업은 9-1단계에서 확인한다.
 - 메인 세션이 Opus 5.5(`claude-opus-5-5`)가 아니면: 2~5단계를 `Agent(model: "opus")` 하나에, 7~9단계를 또 다른 `Agent(model: "opus")` 하나에 맡기고 메인 세션은 순서만 진행한다.
 - Opus는 코멘트 **문장 내용**을 쓰거나 고치지 않는다 (7단계의 예외만). 사실(숫자·뉴스·실적)은 Opus가 모으고, 그 사실로 무엇을 말할지는 Fable이 정한다.
 
@@ -106,6 +107,14 @@ GitHub Pages가 1분 안에 반영한다: https://hangseokemail-spec.github.io/s
 - 끝나면 `git pull` 후 `data/notify/result.json`을 본다(`status`, `id`, `errors`).
 - `errors`가 있으면 재시도하지 말고 마지막 메시지에 "다른 사람 알림 발송 실패: <이유>" 한 줄을 붙인다.
 - 구독자가 없으면 "not subscribed" 오류가 오는데, 실패가 아니니 그대로 넘어간다.
+
+## 9-1. 지침서 동기화 (1분) — Opus
+알림을 보낸 **뒤에** 한다(발간을 늦추지 않게). `GUIDE.md` 7절 그대로:
+```
+python3 scripts/guide_export.py build      # "changed": false 면 끝
+```
+- `"changed": true`면 구글 드라이브 `create_file`(title·parentId=folder_id·contentMimeType "text/html"·base64Content=file_ref) → `prev_doc_id`가 있으면 `update_file`(fileId=prev_doc_id, title=prev_title_new, parentId=old_folder_id) → `python3 scripts/guide_export.py done <새 문서 id>` → `git add data/guide_sync.json && git commit -qm "지침서 동기화" && git pull -q --rebase && git push -q`.
+- 이전 판은 지우지 않는다. 구글 드라이브에 닿지 않으면 건너뛰고 마지막 메시지에 "지침서 갱신 못 함" 한 줄.
 
 ## 10. 마지막 메시지 (= 선생님 휴대폰 Claude 알림) — Opus
 300자 이내, 이 형식 그대로:

@@ -95,10 +95,14 @@ def compose():
 
 
 def to_html(body, stamp, commit):
-    import markdown
-    h = markdown.markdown(body, extensions=["tables", "fenced_code", "sane_lists"])
+    try:
+        from markdown_it import MarkdownIt
+    except ImportError:  # 예약 작업 세션에 없으면 한 번 설치
+        subprocess.run([sys.executable, "-m", "pip", "install", "markdown-it-py", "--break-system-packages", "-q"], check=False)
+        from markdown_it import MarkdownIt
+    h = MarkdownIt("commonmark", {"html": True}).enable("table").render(body)  # 2~3칸 들여쓴 하위 목록도 그대로
     h = h.replace("<table>", '<table border="1" cellpadding="5" style="border-collapse:collapse">')
-    h = h.replace("<pre>", '<pre style="font-family:Consolas,monospace;font-size:9pt;background:#f3f3f3">')
+    h = h.replace("<pre>", '<pre style="font-family:Consolas,monospace;font-size:9pt;background:#f3f3f3;white-space:pre-wrap">')
     h = h.replace("<code>", '<code style="font-family:Consolas,monospace">')
     h = h.replace("<blockquote>", '<blockquote style="color:#444;border-left:3px solid #aaa;padding-left:8px">')
     head = (f"<h1>{NAME}</h1><p><b>{stamp} 판</b> · 저장소 커밋 <code>{commit}</code> · "

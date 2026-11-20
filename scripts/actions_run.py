@@ -2,6 +2,7 @@
   python scripts/actions_run.py collect [--no-board|--force-board]  → collect.py (+ 전체 수집이면 analyze.py), 결과 data/runs/collect_last.json
   python scripts/actions_run.py notify                              → data/notify/latest.json 내용으로 OneSignal 알림, 결과 data/notify/result.json
   python scripts/actions_run.py check                               → 열쇠 3개가 맞는지만 확인(알림은 보내지 않음), 결과 data/runs/keys_check.json
+  python scripts/actions_run.py factors                             → 새 팩터 원자료(FRED)와 장기 지수 받기, 결과 data/runs/factors_last.json
 결과 파일·로그에는 열쇠를 절대 남기지 않는다(공개 저장소)."""
 import datetime as dt, json, os, re, subprocess, sys, urllib.request, urllib.error
 
@@ -50,8 +51,10 @@ def last_json(text):
 
 def collect(extra):
     started = now()
+    # 새 팩터(watch·active) 원자료를 먼저 새로 받는다 — 실패해도 수집은 계속
+    rcf, outf = run(['scripts/factors.py', 'fetch', '--no-long'])
     rc, out = run(['scripts/collect.py'] + extra)
-    res = {'started': started, 'args': extra, 'collect_rc': rc, 'result': last_json(out),
+    res = {'started': started, 'args': extra, 'collect_rc': rc, 'result': last_json(out), 'factors': last_json(outf),
            'log_tail': out.strip().splitlines()[-25:]}
     if rc == 0 and '--no-board' not in extra:
         rc2, out2 = run(['scripts/analyze.py'])
@@ -96,6 +99,14 @@ def get(url):
         return 0, scrub(e)[:120]
 
 
+def factors(extra):
+    """새 팩터 후보·사용 중 팩터의 원자료(FRED)와 장기 지수를 받는다."""
+    started = now()
+    rc, out = run(['scripts/factors.py', 'fetch'] + [x for x in extra if not x.startswith('--')])
+    save('data/runs/factors_last.json', {'started': started, 'rc': rc, 'result': last_json(out), 'log_tail': out.strip().splitlines()[-15:], 'finished': now()})
+    return rc
+
+
 def check():
     res = {'checked': now()}
     s, body = get(f'https://elite.finviz.com/quote_export.ashx?t=SPY&p=d&auth={KEYS[0]}')   # collect.py와 같은 주소
@@ -118,4 +129,4 @@ def check():
 
 if __name__ == '__main__':
     what = sys.argv[1] if len(sys.argv) > 1 else 'collect'
-    sys.exit({'collect': lambda: collect(sys.argv[2:]), 'notify': notify, 'check': check}[what]())
+    sys.exit({'collect': lambda: collect(sys.argv[2:]), 'notify': notify, 'check': check, 'factors': lambda: factors(sys.argv[2:])}[what]())

@@ -2,7 +2,7 @@ name: 열쇠가 필요한 일 (수집·알림·열쇠 확인)
 # 예약 작업 세션은 열쇠를 갖지 않는다. 세션이 .github/triggers/<일> 파일에 "인자 시각"을 써서 푸시하면 이 작업이 GitHub 비밀값으로 돌린다.
 on:
   push:
-    paths: ['.github/triggers/collect', '.github/triggers/notify', '.github/triggers/check']
+    paths: ['.github/triggers/collect', '.github/triggers/notify', '.github/triggers/check', '.github/triggers/factors']
   workflow_dispatch:
 permissions:
   contents: write

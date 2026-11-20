@@ -1,0 +1,338 @@
+{
+ "_안내": "새 팩터 등록부. 상태 watch(관찰만) → active(가중치를 받아 점수에 들어감) → removed. 넣기·빼기·등록은 위원회(Fable 2 · Opus 3) 합의로만(WEIGHTS.md 8절). 원래 지표 20개는 여기 없고 collect.py에 있다.",
+ "score_rule": "그날까지 공개된(관측일 + lag_days) 변환값 중 최근 3년 값에서 지금 값의 위치를 5등분 → 1~5점. direction −1이면 뒤집음. 최소 2년치 필요.",
+ "types": {
+  "fred": "FRED 시리즈 하나 {id}",
+  "fred_ratio": "FRED 두 시리즈의 비율 {num, den}",
+  "hist": "data/hist/ 안의 날짜별 값 파일 {file}"
+ },
+ "factors": {
+  "t10y2y": {
+   "name": "장단기 금리차(10년−2년)",
+   "short": "금리차",
+   "group": "lq",
+   "cat": "B",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "T10Y2Y"
+   },
+   "transform": "level",
+   "direction": 1,
+   "lag_days": 1,
+   "stale_days": 10,
+   "unit": "%p",
+   "dec": 2,
+   "freq": "매일",
+   "why": "금리차가 마이너스(역전)면 경기침체 경고로 읽힌다. 금리차가 클수록 좋은 쪽으로 둔다.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "claims": {
+   "name": "신규 실업수당 청구 6개월 변화",
+   "short": "실업청구",
+   "group": "lq",
+   "cat": "E",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "ICSA"
+   },
+   "transform": "pct",
+   "chg_days": 182,
+   "direction": -1,
+   "lag_days": 5,
+   "stale_days": 21,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매주 목요일",
+   "why": "매주 나오는 가장 빠른 고용 지표. 청구가 늘면 경기 둔화 신호라 낮은 점수.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "cpi": {
+   "name": "소비자물가(CPI) 전년비",
+   "short": "CPI",
+   "group": "lq",
+   "cat": "E",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "CPIAUCSL"
+   },
+   "transform": "pct",
+   "chg_days": 365,
+   "direction": -1,
+   "lag_days": 45,
+   "stale_days": 75,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매월 중순",
+   "why": "물가가 높으면 금리 인하 여지가 줄어 돈이 덜 풀린다. 물가가 높을수록 낮은 점수.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "unrate": {
+   "name": "실업률 1년 변화",
+   "short": "실업률",
+   "group": "lq",
+   "cat": "E",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "UNRATE"
+   },
+   "transform": "chg",
+   "chg_days": 365,
+   "direction": -1,
+   "lag_days": 35,
+   "stale_days": 70,
+   "unit": "%p",
+   "dec": 1,
+   "freq": "매월 첫 금요일",
+   "why": "실업률이 1년 새 오르면 경기침체 쪽(삼 법칙과 비슷). 오를수록 낮은 점수.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "indpro": {
+   "name": "산업생산 전년비",
+   "short": "산업생산",
+   "group": "lq",
+   "cat": "E",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "INDPRO"
+   },
+   "transform": "pct",
+   "chg_days": 365,
+   "direction": 1,
+   "lag_days": 45,
+   "stale_days": 75,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매월 중순",
+   "why": "공장·광산·전력 생산. 늘수록 경기가 좋은 쪽.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "retail": {
+   "name": "소매판매 전년비",
+   "short": "소매판매",
+   "group": "lq",
+   "cat": "E",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "RSAFS"
+   },
+   "transform": "pct",
+   "chg_days": 365,
+   "direction": 1,
+   "lag_days": 45,
+   "stale_days": 75,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매월 중순",
+   "why": "미국 경제의 70%인 소비의 흐름. 늘수록 좋은 쪽.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "payems": {
+   "name": "비농업 고용 3개월 증가율",
+   "short": "고용",
+   "group": "lq",
+   "cat": "E",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "PAYEMS"
+   },
+   "transform": "pct",
+   "chg_days": 91,
+   "direction": 1,
+   "lag_days": 35,
+   "stale_days": 70,
+   "unit": "%",
+   "dec": 2,
+   "freq": "매월 첫 금요일",
+   "why": "고용보고서의 일자리 수. 늘수록 좋은 쪽.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "wei": {
+   "name": "주간 경제지수(WEI)",
+   "short": "WEI",
+   "group": "lq",
+   "cat": "E",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "WEI"
+   },
+   "transform": "level",
+   "direction": 1,
+   "lag_days": 5,
+   "stale_days": 21,
+   "unit": "",
+   "dec": 2,
+   "freq": "매주 목요일",
+   "why": "뉴욕 연은의 주간 경제활동 지수(10개 주간 지표 합성). 높을수록 경기가 좋은 쪽.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "stlfsi": {
+   "name": "세인트루이스 금융스트레스",
+   "short": "금융스트레스",
+   "group": "lq",
+   "cat": "D",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "STLFSI4"
+   },
+   "transform": "level",
+   "direction": -1,
+   "lag_days": 7,
+   "stale_days": 21,
+   "unit": "",
+   "dec": 2,
+   "freq": "매주",
+   "why": "금리·스프레드·변동성 18개로 만든 금융시장 스트레스. 높을수록 낮은 점수(NFCI와 겹치는지 확인 필요).",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "realy": {
+   "name": "10년 실질금리 3개월 변화",
+   "short": "실질금리",
+   "group": "lq",
+   "cat": "B",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "DFII10"
+   },
+   "transform": "chg",
+   "chg_days": 91,
+   "direction": -1,
+   "lag_days": 1,
+   "stale_days": 10,
+   "unit": "%p",
+   "dec": 2,
+   "freq": "매일",
+   "why": "물가를 뺀 금리. 빠르게 오르면 성장주 가치가 눌린다. 오를수록 낮은 점수.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "igs": {
+   "name": "투자등급 회사채 스프레드",
+   "short": "IG스프레드",
+   "group": "lq",
+   "cat": "B",
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "BAMLC0A0CM"
+   },
+   "transform": "level",
+   "direction": -1,
+   "lag_days": 1,
+   "stale_days": 10,
+   "unit": "%",
+   "dec": 2,
+   "freq": "매일",
+   "why": "우량 회사채의 추가 금리. 벌어지면 신용 경계(하이일드와 겹치는지 확인 필요).",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "umcsent": {
+   "name": "미시간 소비자심리",
+   "short": "소비심리",
+   "group": "tc",
+   "cat": null,
+   "status": "watch",
+   "source": {
+    "type": "fred",
+    "id": "UMCSENT"
+   },
+   "transform": "level",
+   "direction": 1,
+   "lag_days": 30,
+   "stale_days": 60,
+   "unit": "",
+   "dec": 1,
+   "freq": "매월 (중순 잠정·말 확정)",
+   "why": "대표적인 역발상 심리 지표. 심리가 높을수록 과열 쪽 점수.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "vixts": {
+   "name": "VIX 기간구조(VIX ÷ 3개월 VIX)",
+   "short": "VIX기간",
+   "group": "tc",
+   "cat": null,
+   "status": "watch",
+   "source": {
+    "type": "fred_ratio",
+    "num": "VIXCLS",
+    "den": "VXVCLS"
+   },
+   "transform": "level",
+   "direction": -1,
+   "lag_days": 1,
+   "stale_days": 10,
+   "unit": "",
+   "dec": 2,
+   "freq": "매일",
+   "why": "1보다 크면(단기 공포 > 3개월 공포) 공황 쪽, 낮을수록 안심·과열 쪽.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "ndxspx": {
+   "name": "나스닥100 ÷ S&P500 3개월 변화",
+   "short": "기술주쏠림",
+   "group": "tc",
+   "cat": null,
+   "status": "watch",
+   "source": {
+    "type": "fred_ratio",
+    "num": "NASDAQ100",
+    "den": "SP500"
+   },
+   "transform": "pct",
+   "chg_days": 91,
+   "direction": 1,
+   "lag_days": 1,
+   "stale_days": 10,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매일",
+   "why": "기술주가 시장보다 빠르게 오르면 투기적 쏠림 → 과열 쪽 점수.",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  },
+  "a50": {
+   "name": "S&P500 50일선 위 종목 비율",
+   "short": "50일선",
+   "group": "tc",
+   "cat": null,
+   "status": "watch",
+   "source": {
+    "type": "hist",
+    "file": "sp500_a50.json"
+   },
+   "transform": "level",
+   "direction": 1,
+   "lag_days": 0,
+   "stale_days": 7,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매일",
+   "why": "단기 시장 폭. 높으면 단기 과열 쪽(200일선 비율과 겹치는지 확인 필요).",
+   "added": "2026-11-21",
+   "by": "Claude Opus 5.5 (첫 후보 목록)"
+  }
+ },
+ "requests": [],
+ "committee_log": []
+}

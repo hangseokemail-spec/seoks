@@ -38,7 +38,9 @@ git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
 
 ## 3. 웹 지표 보충 (3분) — Opus → `data/manual.json`
 원칙: **매일 나오지 않는 값은 나온 날 반영하고, 그 전까지는 가장 최근 발표값을 그대로 쓴다** (화면에 기준일이 자동 표시됨).
-**값이 빠지지 않게 지표마다 출처를 여러 곳 둔다.** 아래 순서대로 시도하고, 한 곳이 안 열리면 같은 주소를 다시 열지 말고 바로 다음 출처로 넘어간다. 검색은 한 번에 병렬로.
+순서 (선생님 지시 2026-11-21): **1) 자체 조사**로 찾고, 공포탐욕·풋콜·신용융자 중 자체 조사로 못 찾은 것만 **2) 구글 드라이브 '수치 조사_gemini'** 값으로 채운다. 그래도 없으면 이전 값을 유지한다.
+
+**1) 자체 조사 — 값이 빠지지 않게 지표마다 출처를 여러 곳 둔다.** 아래 순서대로 시도하고, 한 곳이 안 열리면 같은 주소를 다시 열지 말고 바로 다음 출처로 넘어간다. 검색은 한 번에 병렬로.
 - **주소는 먼저 웹검색으로 찾고, 검색 결과에 나온 주소를 그대로 연다.** 예약 작업에서 직접 만든 주소(예: Cboe `?dt=<날짜>`)는 승인 대기로 막힌다(11/20에 Cboe·YCharts가 이렇게 막힘).
 - 사이트가 자동 읽기를 거부하면(CNN 등) 다른 도구·브라우저·다른 AI로 우회하지 않는다. curl로 봇 차단을 우회하지 않는다. 남의 화면을 그대로 옮겨 보여 주는 복사 사이트(미러)도 쓰지 않는다. 그 값을 보도한 기사, 공식 통계, 데이터 제공사를 쓴다.
 - 웹페이지를 여는 하위 에이전트(web-fetch)가 사용 한도 오류를 내면 `model: "opus"`로 다시 띄운다.
@@ -60,7 +62,12 @@ git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
   2. YCharts `finra_margin_debt` (전년비 표기값 있음)
   3. thetrading.tools margin-debt (FINRA 원자료, 조 단위 반올림)
   최신 월이 manual.json의 마지막 월보다 새로우면 `{"month": "YYYY-MM", "value": 백만달러, "yoy": 전년비%, "src": "<출처>"}` 추가.
-- 모든 출처에서 못 구하면 이전 값을 유지하고, research의 notes와 마지막 메시지에 `<지표> 새 값 못 구함 (시도: A·B·C)`를 적는다.
+
+**2) 자체 조사로 못 찾은 지표는 구글 드라이브 '수치 조사_gemini'에서 확인한다.** 'AI › 증시현황판' 폴더(id `1Naz2cTUd4SCknOTXroSLgvujROrxPRpU`)의 구글 시트 '수치 조사_gemini'(id `1A87drnPjcDJtBT1ryaOjOO0WYATT8yKmNwr9hdQGNbA`), '일별 기록' 탭. 매일 오전 6시경 한 줄씩 기록된다. 구글 드라이브 `read_file_content`로 읽는다.
+- 열: 수집일자(KST) · Fear & Greed 지수·등급·기준일(ET) · Total Put/Call · Equity Put/Call · Put/Call 기준일(ET) · Margin Debt 당월 잔액($M) · 전년동월 잔액($M) · YoY · 기준월 · 비고.
+- 수집일자가 오늘(KST)인 줄에서 필요한 칸만 쓴다: fg = 지수(date = F&G 기준일), pc = Total Put/Call(date = Put/Call 기준일), margin = 당월 잔액·YoY(month = 기준월). src는 `"수치 조사_gemini (구글 드라이브)"`. 기준일이 manual.json의 마지막 값보다 새로울 때만 넣는다.
+- 오늘 줄이 아직 없으면 기다리지 않는다(06:04 작업이 3단계에 닿는 06:10 전후에 아직 기록 전일 수 있음). 9-1단계를 마친 뒤 한 번 더 보고, 그때 생겼으면 manual.json에만 넣어 둔다(다음 작업부터 반영, 그날 점수는 다시 계산하지 않음).
+- 이 시트에서도 못 구하면 이전 값을 유지하고, research의 notes와 마지막 메시지에 `<지표> 새 값 못 구함 (시도: A·B·C·gemini 시트)`를 적는다.
 - 바꿨으면 manual.json을 커밋하면서 `echo "--no-board $(date -u +%FT%TZ)" > .github/triggers/collect` 로 다시 맡긴다(끝나면 `git pull`).
 - finviz는 요청이 많으면 일시 차단되므로 collect.py 외에 finviz를 따로 호출하지 않는다.
 

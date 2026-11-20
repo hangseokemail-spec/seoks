@@ -28,8 +28,8 @@
   },
   {
    "date": "2026-11-20",
-   "value": 14,
-   "src": "TokenPost (CNN Fear & Greed 인용, 11/20 장중 보도값)"
+   "value": 10,
+   "src": "수치 조사_gemini (구글 드라이브, CNN Fear & Greed 11/20 기준) · TokenPost 장중 보도값 14"
   }
  ],
  "aaii": [
@@ -109,7 +109,7 @@
   {
    "date": "2026-11-19",
    "value": 1.01,
-   "src": "YCharts (Cboe Total Put/Call 원자료)"
+   "src": "수치 조사_gemini (구글 드라이브) · YCharts 같은 값 (Cboe 원자료)"
   }
  ],
  "margin": [
@@ -368,7 +368,7 @@
    "month": "2026-10",
    "value": 1448360,
    "yoy": 22.36,
-   "src": "FINRA Margin Statistics (백만 달러 정확값) · 전년비는 2025-10 1,183,654 대비 계산"
+   "src": "수치 조사_gemini (구글 드라이브) · FINRA Margin Statistics 같은 값 (백만 달러 정확값, 전년 1,183,654 대비)"
   }
  ]
 }

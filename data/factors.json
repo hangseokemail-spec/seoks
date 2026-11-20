@@ -355,7 +355,7 @@
    "short": "VIX기간",
    "group": "tc",
    "cat": null,
-   "status": "watch",
+   "status": "active",
    "source": {
     "type": "fred_ratio",
     "num": "VIXCLS",
@@ -377,7 +377,9 @@
     "n": 4771,
     "first": "2007-12-04",
     "last_obs": "2026-11-19"
-   }
+   },
+   "activated": "2026-11-23",
+   "init_weight": 0.5
   },
   "ndxspx": {
    "name": "나스닥100 ÷ S&P500 3개월 변화",
@@ -436,8 +438,154 @@
     "first": "2017-08-18",
     "last_obs": "2026-11-20"
    }
+  },
+  "krw": {
+   "name": "원/달러 환율 3개월 변화",
+   "short": "원달러",
+   "group": "lq",
+   "cat": "D",
+   "source": {
+    "type": "fred",
+    "id": "DEXKOUS"
+   },
+   "transform": "pct",
+   "chg_days": 91,
+   "direction": -1,
+   "lag_days": 10,
+   "stale_days": 21,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매일(매주 월요일에 지난주 값 공개)",
+   "why": "원/달러 환율이 3개월 사이 빠르게 오르면(원화 약세) 외국인 자금이 한국 증시에서 빠지기 쉬워 낮은 점수, 원화가 강해지면 높은 점수로 봅니다.",
+   "status": "watch",
+   "added": "2026-11-21",
+   "by": "위원회 합의"
+  },
+  "permit": {
+   "name": "주택 건축허가 전년비",
+   "short": "건축허가",
+   "group": "lq",
+   "cat": "E",
+   "source": {
+    "type": "fred",
+    "id": "PERMIT"
+   },
+   "transform": "pct",
+   "chg_days": 365,
+   "direction": 1,
+   "lag_days": 60,
+   "stale_days": 95,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매월 중순~하순",
+   "why": "집을 지으려는 허가 건수. 금리에 가장 먼저 반응하는 경기 선행 지표로, 늘수록 좋은 쪽.",
+   "status": "watch",
+   "added": "2026-11-21",
+   "by": "위원회 합의"
+  },
+  "fsi_tc": {
+   "name": "금융스트레스 역발상(세인트루이스 연은)",
+   "short": "스트레스역",
+   "group": "tc",
+   "cat": null,
+   "source": {
+    "type": "fred",
+    "id": "STLFSI4"
+   },
+   "transform": "level",
+   "chg_days": null,
+   "direction": -1,
+   "lag_days": 7,
+   "stale_days": 21,
+   "unit": "",
+   "dec": 2,
+   "freq": "매주",
+   "why": "금융시장 스트레스가 낮을수록 안심·과열 쪽(높은 점수), 높을수록 공포 쪽(낮은 점수)으로 보는 역발상 지표입니다. 하이일드 스프레드·VIX를 트렌드캐치에서 역발상으로 쓰는 것과 같은 생각입니다.",
+   "status": "watch",
+   "added": "2026-11-21",
+   "by": "위원회 합의"
+  },
+  "btc": {
+   "name": "비트코인 3개월 변화",
+   "short": "비트코인",
+   "group": "tc",
+   "cat": null,
+   "source": {
+    "type": "fred",
+    "id": "CBBTCUSD"
+   },
+   "transform": "pct",
+   "chg_days": 91,
+   "direction": 1,
+   "lag_days": 2,
+   "stale_days": 10,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매일(주말 포함)",
+   "why": "비트코인이 3개월 동안 크게 오르면 투기 심리가 달아오른 것으로 보고 높은 점수(과열).",
+   "status": "watch",
+   "added": "2026-11-21",
+   "by": "위원회 합의"
+  },
+  "oil": {
+   "name": "WTI 유가 3개월 변화",
+   "short": "유가",
+   "group": "lq",
+   "cat": "E",
+   "source": {
+    "type": "fred",
+    "id": "DCOILWTICO"
+   },
+   "transform": "pct",
+   "chg_days": 91,
+   "direction": -1,
+   "lag_days": 7,
+   "stale_days": 21,
+   "unit": "%",
+   "dec": 1,
+   "freq": "매일(주 1회 묶어 공개)",
+   "why": "유가가 빠르게 오르면 물가와 금리 부담이 커지고 소비 여력이 준다. 오를수록 낮은 점수.",
+   "status": "watch",
+   "added": "2026-11-21",
+   "by": "위원회 합의"
   }
  },
- "requests": [],
- "committee_log": []
+ "requests": [
+  {
+   "date": "2026-11-21",
+   "key": "kr_export",
+   "why": [
+    "F1: 한국 수출 증가율(관세청, 매월 1일 발표 및 1~20일 잠정치)은 FRED에서 제때 받을 수 없는 자료입니다. 풍향계의 코스피 20일 맞는방향_강도가 0.166으로 낮아, 코스피와 직접 이어지는 자료를 받을 방법이 필요합니다."
+   ],
+   "votes": 5
+  }
+ ],
+ "committee_log": [
+  {
+   "date": "2026-11-21",
+   "level": "weekly",
+   "version": 3,
+   "adds": [
+    [
+     "vixts",
+     0.5
+    ]
+   ],
+   "removes": [],
+   "registers": [
+    "krw",
+    "permit",
+    "fsi_tc",
+    "btc",
+    "oil"
+   ],
+   "rejected": [
+    {
+     "안건": "register:stlfsi_tc",
+     "이유": "같은 자료를 다른 키로 등록하는 안건(register:fsi_tc)이 먼저 통과(찬성 5명, 같으면 먼저 제안된 안건)"
+    }
+   ],
+   "summary": "넣기: VIX 기간구조(VIX ÷ 3개월 VIX)(0.5%) · 새 후보 관찰: 원/달러 환율 3개월 변화, 주택 건축허가 전년비, 금융스트레스 역발상(세인트루이스 연은), 비트코인 3개월 변화, WTI 유가 3개월 변화 · 합의 안 된 안건 1개"
+  }
+ ]
 }

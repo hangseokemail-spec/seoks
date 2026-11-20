@@ -200,6 +200,27 @@ def cmd_items():
             if p.get("weight") is not None:
                 it["제안_가중치"].append(p["weight"])
             it["이유"].append(f"{m.get('member')}: {p.get('why', '')}")
+            if p["action"] == "register" and p.get("def"):
+                it.setdefault("정의_후보", {})[m.get("member")] = p["def"]
+    # 같은 자료·같은 그룹을 다른 키로 등록하자는 안건은 서로 겹친다고 표시(둘 다 통과하면 찬성이 많은 쪽만 남김)
+    sig = {}
+    for iid, it in items.items():
+        if it["action"] != "register":
+            continue
+        defs = list((it.get("정의_후보") or {}).values()) or [it.get("def") or {}]
+        for d in defs:
+            src = d.get("source") or {}
+            k = (json.dumps(src, sort_keys=True, ensure_ascii=False), d.get("group"))
+            sig.setdefault(k, set()).add(iid)
+    for ids in sig.values():
+        if len(ids) > 1:
+            for iid in ids:
+                items[iid]["겹치는_안건"] = sorted(ids - {iid})
+    for it in items.values():
+        dd = it.get("정의_후보") or {}
+        uniq = {json.dumps(d, sort_keys=True, ensure_ascii=False) for d in dd.values()}
+        if len(uniq) > 1:
+            it["안내"] = "위원마다 정의가 다릅니다(정의_후보). 찬성할 때 \"def_from\": \"<위원 ID>\"로 어느 정의를 쓸지 고르세요. 찬성표에서 가장 많이 고른 정의로 등록합니다(같으면 먼저 제안한 위원 것)."
     out = {"안건": list(items.values()), "위원별_요약": {}}
     for path in sorted(glob.glob(os.path.join(CDIR, "r1_*.json"))):
         m = json.load(open(path, encoding="utf-8"))
@@ -272,12 +293,23 @@ def cmd_tally():
             keep[g] -= 1
             n_rem += 1
         elif a == "register":
-            d = it.get("def") or {}
+            dd = it.get("정의_후보") or {}
+            pick = [votes[mid][it["안건"]].get("def_from") for mid in yes if votes[mid][it["안건"]].get("def_from") in dd]
+            order = [x for x in it["제안한_위원"] if x in dd]
+            if pick:
+                best = max(order, key=lambda x: (pick.count(x), -order.index(x)))
+            else:
+                best = order[0] if order else None
+            d = dd.get(best) if best else (it.get("def") or {})
+            dup = [r for r in res["registers"] if r["안건"] in (it.get("겹치는_안건") or [])]
+            if dup:
+                res["rejected"].append({"안건": it["안건"], "이유": f"같은 자료를 다른 키로 등록하는 안건({dup[0]['안건']})이 먼저 통과(찬성 {dup[0]['votes']}명, 같으면 먼저 제안된 안건)"})
+                continue
             errs = FA.validate(k, d, R) + ([f"이미 있는 키 {k}"] if k in R["factors"] else [])
             if errs:
                 res["rejected"].append({"안건": it["안건"], "이유": "; ".join(errs)})
                 continue
-            res["registers"].append({"key": k, "def": d, "votes": len(yes)})
+            res["registers"].append({"key": k, "def": d, "votes": len(yes), "def_from": best, "안건": it["안건"]})
         elif a == "request":
             res["requests"].append({"key": k, "why": it["이유"], "votes": len(yes)})
     s = []
@@ -290,7 +322,8 @@ def cmd_tally():
     s.append(f"합의 안 된 안건 {len(res['rejected'])}개")
     res["summary"] = " · ".join(s)
     if res["requests"]:
-        R.setdefault("requests", []).extend({"date": res["date"], **q} for q in res["requests"])
+        have = {(x.get("date"), x.get("key")) for x in R.setdefault("requests", [])}
+        R["requests"].extend({"date": res["date"], **q} for q in res["requests"] if (res["date"], q["key"]) not in have)
         FA.save(R)
     json.dump(res, open(RESULT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(json.dumps({k: res[k] for k in ("level", "members_voted", "adds", "removes", "summary")} | {"registers": [x["key"] for x in res["registers"]]}, ensure_ascii=False, indent=1))

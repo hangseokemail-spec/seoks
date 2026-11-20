@@ -163,15 +163,30 @@ def main():
                 "지난13주_반영": r.get("past13"), "역할": r.get("role"), "방향": r.get("direction"), "시작": r.get("start")}
 
     CW = WM.current()
-    wtc, wlq = WM.norm(CW["tc"], WM.TC_KEYS), WM.norm(CW["lq"], WM.LQ_KEYS)
+    wtc, wlq = WM.norm(CW["tc"]), WM.norm(CW["lq"])
     fstr, (fa, fb, fc) = WM.formula(CW)
     RULES["풍향계_식"] = f"{fstr} (= 심리 바람 {CW['wind']['sent'] * 100:.0f}% + 유동성 바람 {(1 - CW['wind']['sent']) * 100:.0f}%, 가중치 버전 v{CW['v']} · {CW['from']}부터)"
-    tc_items = [{"key": k, "이름": n, "가중치%": round(wtc[k], 1), "값": v(f"tc_{k}"), "점수": v(f"s_tc_{k}"), "점수_1주전": v(f"s_tc_{k}", iw),
+    tc_items = [{"key": k, "이름": n, "가중치%": round(wtc.get(k, 0), 1), "값": v(f"tc_{k}"), "점수": v(f"s_tc_{k}"), "점수_1주전": v(f"s_tc_{k}", iw),
                  "기준일": (v(f"obs_{k}") or asof.get(ak)) if ak else date, "단위": u, "예측력": a13(f"tc_{k}")}
                 for k, n, ak, u in TC_ITEMS]
-    lq_items = [{"key": k, "카테고리": f"{cat} {LQ_CAT[cat]}", "가중치": round(wlq[k], 2), "이름": n, "값": v(f"lq_{k}"), "점수": v(f"s_lq_{k}"),
+    lq_items = [{"key": k, "카테고리": f"{cat} {LQ_CAT[cat]}", "가중치": round(wlq.get(k, 0), 2), "이름": n, "값": v(f"lq_{k}"), "점수": v(f"s_lq_{k}"),
                  "점수_1주전": v(f"s_lq_{k}", iw), "기준일": asof.get(ak) if ak else date, "단위": u, "예측력": a13(f"lq_{k}")}
                 for k, cat, w, n, ak, u in LQ_ITEMS]
+    # 위원회가 넣은 새 팩터(data/factors.json active) — 점수는 '최근 3년 중 위치 5등분'
+    import factors as FA
+    FR = FA.load()
+    for k in FA.keys(FR):
+        f = FR["factors"][k]
+        g = f["group"]
+        it = {"key": k, "이름": f["name"], "새_팩터": True, "값": v(f"{g}_{k}"), "점수": v(f"s_{g}_{k}"), "점수_1주전": v(f"s_{g}_{k}", iw),
+              "기준일": asof.get(k) or date, "단위": f.get("unit", ""), "점수_방식": "그날까지 공개된 최근 3년 값 중 위치를 5등분(1~5)", "왜_넣었나": f.get("why")}
+        if g == "tc":
+            tc_items.append({**it, "가중치%": round(wtc.get(k, 0), 1)})
+        else:
+            lq_items.append({**it, "카테고리": f"{f.get('cat') or 'E'} {LQ_CAT.get(f.get('cat') or 'E', '경기·물가')}", "가중치": round(wlq.get(k, 0), 2)})
+    for it in tc_items + lq_items:
+        if (it.get("가중치%") if "가중치%" in it else it.get("가중치")) == 0:
+            it["메모"] = "위원회 합의로 뺀 지표 — 종합 점수에 들어가지 않음"
     extra = {"10년물_13주변화_bp": v("lq_y10_chg"), "EFFR_수준": v("lq_effr_level"), "순유동성_수준_십억달러": v("lq_nl_level")}
     cats = {}
     for it in lq_items:

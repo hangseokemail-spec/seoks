@@ -63,9 +63,24 @@ def weights_md():
            f"- 가중치 결정 모델: {(R.get('decider') or {}).get('name', '')}"]
     if v.get("summary"):
         out += ["", f"> {v['summary']}"]
-    for title, ks, grp in (("트렌드캐치 9개", TC, "tc"), ("유동성 11개", LQ, "lq")):
-        out += ["", f"**{title}**", "", "| 지표 | 가중치 |", "|---|---|"]
-        out += [f"| {nm} | {pct(v[grp], ks, k):.2f}% |" for k, nm in ks]
+    FR = json.loads(read("data/factors.json")) if os.path.exists(os.path.join(ROOT, "data/factors.json")) else {"factors": {}}
+    names = dict(TC) | dict(LQ) | {k: f["name"] for k, f in FR["factors"].items()}
+    for gname, base, grp in (("트렌드캐치", TC, "tc"), ("유동성", LQ, "lq")):
+        d = v[grp]
+        ks = [k for k, _ in base if k in d] + [k for k in d if k not in dict(base)]
+        t = sum(float(d[k]) for k in ks)
+        out += ["", f"**{gname} {len(ks)}개**", "", "| 지표 | 가중치 |", "|---|---|"]
+        out += [f"| {names.get(k, k)}{' (새 팩터)' if k in FR['factors'] else ''} | {float(d[k]) / t * 100:.2f}% |" for k in ks]
+    act = [(k, f) for k, f in FR["factors"].items() if f.get("status") == "active"]
+    watch = [(k, f) for k, f in FR["factors"].items() if f.get("status") == "watch"]
+    gone = [(k, f) for k, f in FR["factors"].items() if f.get("status") == "removed"]
+    out += ["", f"**새 팩터** — 사용 중 {len(act)}개 · 관찰 중인 후보 {len(watch)}개 · 뺀 것 {len(gone)}개 (넣기·빼기는 위원회 합의로만, 4부 8절)"]
+    if act:
+        out += [f"- 사용 중: " + ", ".join(f"{f['name']}({f.get('activated', '')}부터)" for k, f in act)]
+    if watch:
+        out += [f"- 관찰 중: " + ", ".join(f"{f['name']}" for k, f in watch)]
+    if gone:
+        out += [f"- 뺀 것: " + ", ".join(f"{f['name']}({f.get('removed', '')})" for k, f in gone)]
     L = R.get("levels") or {}
     if L:
         out += ["", "**점검 단계별 한도** (지표 하나가 한 번에 움직일 수 있는 폭)", "",
@@ -77,7 +92,7 @@ def weights_md():
                 out.append(f"| {LV[k]} | {when[k]} | ±{fmt(x['tc_step'])}%p | ±{fmt(x['lq_step'])}%p | ±{fmt(x['sent_step'] * 100)}%p | "
                            f"{fmt(x['max_turnover'])}%p | {x['후보_시험']}개 |")
         out += ["", f"범위: 트렌드캐치 지표 {R['tc']['min']}~{R['tc']['max']}%, 유동성 지표 {R['lq']['min']}~{R['lq']['max']}%, "
-                    f"심리 비중 {fmt(R['wind_sent']['min'] * 100)}~{fmt(R['wind_sent']['max'] * 100)}%. 어떤 지표도 빼지 않습니다."]
+                    f"심리 비중 {fmt(R['wind_sent']['min'] * 100)}~{fmt(R['wind_sent']['max'] * 100)}%. 새 팩터의 최소 가중치 {fmt(R.get('new_min', 0.5))}%. 지표 빼기는 위원회 합의로만."]
     return "\n".join(out)
 
 

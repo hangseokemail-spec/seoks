@@ -171,8 +171,20 @@ def wind_series(df, ver=None, W=None):
     return c, w
 
 
+_BASE = {}
+
+
 def composite_eval(df, ver):
+    """ver 가중치였다면의 성적. 지표를 넣거나 빼면 종합 점수가 계산되는 날짜가 달라지므로(지표 수 조건),
+    비교가 공정하도록 '지금 가중치로 종합 점수가 있는 날짜'로만 잰다."""
     c, w = wind_series(df, ver=ver)
+    key = (id(df), len(df))
+    if key not in _BASE:
+        b = WM.composite(df, ver=WM.current())
+        _BASE[key] = b["tc"].notna() & b["lq"].notna()
+    m = _BASE[key]
+    c = c.where(m)
+    w = w.where(m)
     res = {"트렌드캐치": score_stats(df, c["tc"], -1), "유동성": score_stats(df, c["lq"], +1), "풍향계": score_stats(df, w, +1)}
     f60 = fwd(df, "spx", 60) * 100
     z = pd.cut(w, [-1, 30, 45, 55, 70, 101], labels=["강한 역풍", "역풍", "무풍", "순풍", "강한 순풍"], right=False)
@@ -413,6 +425,8 @@ def cmd_test(path):
     level = cand.get("level")
     com = committee_result(level)
     ok, errs, new = check(cand, cur, W["rules"], level, com)
+    if com.get("adds"):  # 새로 넣는 팩터 점수도 붙여서 비교
+        df = load_df([x["key"] for x in com["adds"]])
     log = os.path.join(RAW, "weights_tests.log")
     os.makedirs(RAW, exist_ok=True)
     n_before = sum(1 for _ in open(log, encoding="utf-8")) if os.path.exists(log) else 0

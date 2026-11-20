@@ -345,9 +345,31 @@
   // ---------------------------------------------------------------- 가중치 (data/weights.json · 매주 토요일 점검: 주간·월간·분기)
   const LVL = { weekly: "주간", monthly: "월간", quarterly: "분기", biweekly: "첫" };
   const TCK = ["fg", "aaii", "vix", "hy", "pc", "margin", "a200", "rsi", "dev"], LQK = ["fed", "nl", "m2", "effr", "hy", "dxy", "margin", "bank", "vol", "nfci", "y10"];
+  // 버전에 들어 있는 지표 키(원래 지표 순서 + 새 팩터)
+  function keysOf(v, kind) { const base = kind === "tc" ? TCK : LQK, o = (v && v[kind]) || {}; return base.filter((k) => k in o).concat(Object.keys(o).filter((k) => !base.includes(k))); }
+  const lqCats = () => ["A", "B", "C", "D", "E"].filter((c) => M.lq.some((m) => m.cat === c));
+  // 새 팩터(data/factors.json, 위원회 합의로 넣은 것)를 지표 목록에 더한다
+  function addFactors(F) {
+    if (!F || !F.factors) return;
+    Object.entries(F.factors).forEach(([k, f]) => {
+      if (f.status !== "active" || (f.group === "tc" ? M.tc : M.lq).some((m) => m.key === k)) return;
+      const src = f.source || {}, up = f.direction === 1;
+      const tr = { level: "값 그대로", chg: `${f.chg_days}일 전과의 차이`, pct: `${f.chg_days}일 전 대비 변화율(%)` }[f.transform || "level"];
+      const L = f.group === "tc" ? M.TC_LABELS : M.LQ_LABELS;
+      const m = { key: k, name: f.name, short: f.short || f.name, unit: f.unit || "", dec: f.dec ?? 2, cat: f.cat || "E", isNew: true,
+        desc: f.desc || f.why, freq: f.freq || "",
+        formula: `${tr}을 씁니다. 그날까지 공개된 최근 3년 값 중 지금 값이 어디쯤인지를 5등분해 1~5점을 매깁니다(값이 ${up ? "높을수록" : "낮을수록"} 점수가 높습니다).`,
+        bins: [["최근 3년 중 상위 20%", up ? 5 : 1], ["상위 20~40%", up ? 4 : 2], ["중간", 3], ["하위 20~40%", up ? 2 : 4], ["하위 20%", up ? 1 : 5]],
+        up: `값이 ${up ? "오르면 점수가 오릅니다" : "오르면 점수가 내립니다"} (점수 5 = ${L[5]}).`, down: `값이 ${up ? "내리면 점수가 내립니다" : "내리면 점수가 오릅니다"} (점수 1 = ${L[1]}).`,
+        evidence: `${f.activated || ""}부터 위원회(Fable 2 · Opus 3) 합의로 넣은 새 팩터입니다. ${f.why || ""}`,
+        src: src.type === "fred" ? { name: `FRED ${src.id}`, url: `https://fred.stlouisfed.org/series/${src.id}` } :
+          src.type === "fred_ratio" ? { name: `FRED ${src.num} ÷ ${src.den}`, url: `https://fred.stlouisfed.org/series/${src.num}` } : { name: "자체 계산", url: "#" } };
+      (f.group === "tc" ? M.tc : M.lq).push(m);
+    });
+  }
   function verAt(d) { const V = S.weights && S.weights.versions; if (!V || !V.length) return null; let v = V[0]; for (const x of V) if (x.from <= d) v = x; return v; }
   function wNorm(o, keys) { const t = keys.reduce((a, k) => a + (+o[k] || 0), 0) || 1; const r = {}; keys.forEach((k) => r[k] = (+o[k] || 0) / t * 100); return r; }
-  function wOf(kind, key, i) { const v = verAt(D()[i]); if (!v) { const m = (kind === "tc" ? M.tc : M.lq).find((x) => x.key === key); return kind === "tc" ? 100 / 9 : (m ? m.w : 0); } return wNorm(v[kind], kind === "tc" ? TCK : LQK)[key]; }
+  function wOf(kind, key, i) { const v = verAt(D()[i]); if (!v) { const m = (kind === "tc" ? M.tc : M.lq).find((x) => x.key === key); return kind === "tc" ? 100 / 9 : (m ? m.w : 0); } return wNorm(v[kind], keysOf(v, kind))[key] ?? 0; }
   function sentW(i) { const v = verAt(D()[i]); return v ? +v.wind.sent : 0.6; }
   const fmtW = (x) => x == null ? "—" : String(Math.round(x * 10) / 10);
   const pctW = (x) => String(Math.round(x * 1000) / 10);
@@ -365,10 +387,13 @@
     const d = D()[i], used = verAt(d), v = W.versions[W.versions.length - 1], k = W.versions.length - 1, prev = k > 0 ? W.versions[k - 1] : null;
     const pending = S.latest && v.from > S.latest.date;
     const R = W.reviews || [], last = R.length ? R[R.length - 1] : null;
-    const sch = W.rules && W.rules.schedule, nm = (kind, key) => ((kind === "tc" ? M.tc : M.lq).find((m) => m.key === key) || {}).short || ((kind === "tc" ? M.tc : M.lq).find((m) => m.key === key) || {}).name || key;
-    const row = (kind) => { const keys = kind === "tc" ? TCK : LQK, cur = wNorm(v[kind], keys), pv = prev ? wNorm(prev[kind], keys) : null;
-      return keys.map((key) => { const dlt = pv ? cur[key] - pv[key] : 0, ch = Math.abs(dlt) >= 0.05;
-        return `<span class="wtag ${ch ? (dlt > 0 ? "up" : "down") : ""}" title="${esc((v.reasons || {})[kind + "." + key] || "")}">${esc(nm(kind, key))} <b>${fmtW(cur[key])}%</b>${ch ? `<em>${dlt > 0 ? "▲" : "▼"}${fmtW(Math.abs(dlt))}%p</em>` : ""}</span>`; }).join(""); };
+    const fdef = (key) => (S.factors && S.factors.factors && S.factors.factors[key]) || null;
+    const sch = W.rules && W.rules.schedule, nm = (kind, key) => ((kind === "tc" ? M.tc : M.lq).find((m) => m.key === key) || {}).short || ((kind === "tc" ? M.tc : M.lq).find((m) => m.key === key) || {}).name || (fdef(key) || {}).short || (fdef(key) || {}).name || key;
+    const row = (kind) => { const keys = keysOf(v, kind), cur = wNorm(v[kind], keys), pv = prev ? wNorm(prev[kind], keysOf(prev, kind)) : null;
+      return keys.map((key) => { const dlt = pv ? cur[key] - (pv[key] ?? 0) : 0, ch = Math.abs(dlt) >= 0.05;
+        const isNew = pv && !(key in pv);
+        return `<span class="wtag ${ch ? (dlt > 0 ? "up" : "down") : ""}" title="${esc((v.reasons || {})[kind + "." + key] || "")}">${isNew ? "<em>새</em> " : ""}${esc(nm(kind, key))} <b>${fmtW(cur[key])}%</b>${ch && !isNew ? `<em>${dlt > 0 ? "▲" : "▼"}${fmtW(Math.abs(dlt))}%p</em>` : ""}</span>`; }).join("")
+        + (pv ? Object.keys(pv).filter((k) => !(k in cur)).map((k) => `<span class="wtag down">${esc(nm(kind, k))} <b>뺌</b></span>`).join("") : ""); };
     const sDl = prev ? +v.wind.sent - +prev.wind.sent : 0;
     const reasons = Object.entries(v.reasons || {}).filter(([, t]) => t);
     const hist = W.versions.slice().reverse().map((x) => `<tr class="${x === v ? "hit" : ""}"><td>v${x.v}</td><td>${x.from}부터</td><td>심리 ${pctW(+x.wind.sent)}%</td><td>${esc(x.by || "")}</td></tr>`).join("");
@@ -377,16 +402,17 @@
     const dec = (W.rules && W.rules.decider) || {};
     const chk = last && last.check ? Object.entries(last.check).map(([k, c]) => `<span class="wtag">${esc(k.replace(/최근(\d+)주·/, "최근 $1주 신호의 "))} 성적: 순풍 ${esc(String(c["순풍"]).replace("평균 None%", "—"))} · 역풍 ${esc(String(c["역풍"]).replace("평균 None%", "—"))} · 같은 기간 평균 ${c["같은기간_평균%"]}% · 맞힌 횟수(평균 대비) ${esc(c["방향적중_평균대비"])}</span>`).join("") : "";
     return `<div class="card sec wts"><h3>가중치 점검 <span class="muted" style="font-weight:600;font-size:13px">· 매주 토요일 (주간·월간·분기)</span></h3>
-      <div class="cap">풍향계는 증시의 방향을 미리 맞히려는 지표입니다. 매주 토요일 풍향계가 가리킨 방향이 실제로 맞았는지 확인하고, 신호마다 얼마나 무게를 둘지(가중치)를 조정합니다. 주간은 조금, 매달 첫 토요일(월간)은 더, 분기 첫 달(분기)은 가장 크게 움직일 수 있습니다. 결정은 가장 최신 Claude 모델${dec.name ? `(지금 ${esc(dec.name)})` : ""}이, 적용은 Claude Opus가 합니다. 바뀌면 다음 거래일부터 적용되고, 이미 나온 과거 점수는 그대로입니다.</div>
+      <div class="cap">풍향계는 증시의 방향을 미리 맞히려는 지표입니다. 매주 토요일 풍향계가 가리킨 방향이 실제로 맞았는지 확인하고, 신호마다 얼마나 무게를 둘지(가중치)를 조정합니다. 주간은 조금, 매달 첫 토요일(월간)은 더, 분기 첫 달(분기)은 가장 크게 움직일 수 있습니다. 결정은 가장 최신 Claude 모델${dec.name ? `(지금 ${esc(dec.name)})` : ""}이, 적용은 Claude Opus가 합니다. 새 팩터를 넣거나 빼는 일은 Fable 2명·Opus 3명 위원회가 합의한 것만 반영합니다. 바뀌면 다음 거래일부터 적용되고, 이미 나온 과거 점수는 그대로입니다.</div>
       <div class="wvh"><span class="pill" style="background:#3b5b99">버전 ${v.v}</span><span>${v.from}부터 적용${pending ? " (다음 거래일부터)" : ""} · ${esc(v.by || "")}</span>${last ? `<span class="muted">최근 점검 ${last.date} (${lv(last.level)} · ${last.decision})</span>` : `<span class="muted">아직 점검 전</span>`}${sch && sch.next ? `<span class="muted">다음 점검 ${sch.next} (${lv(sch.next_level)})</span>` : ""}</div>
       ${last && last.direction_note ? `<div class="wsum"><b>방향 점검 (${last.date})</b> ${esc(last.direction_note)}</div>` : ""}
       ${chk ? `<div class="wtags" style="margin:4px 0 6px">${chk}</div>` : ""}
       ${v.summary ? `<div class="wsum">${esc(v.summary)}</div>` : ""}
+      ${v.factors && v.factors.committee ? `<div class="wsum"><b>새 팩터 위원회(Fable 2 · Opus 3) 합의</b> ${esc(v.factors.committee)}</div>` : ""}
       ${used && used !== v ? `<div class="note" style="margin:4px 0">${short(d)} 점수는 버전 ${used.v} 가중치로 계산됐습니다(이미 나온 점수는 바꾸지 않습니다).</div>` : ""}
       ${last && last.decision === "유지" && last.version === v.v && last.summary && last.summary !== v.summary ? `<div class="wsum">${esc(last.date)} 점검: ${esc(last.summary)}</div>` : ""}
       <div class="wgrp"><div class="wgl">풍향계 = 심리 <b>${pctW(+v.wind.sent)}%</b>${Math.abs(sDl) > 1e-9 ? `<em class="${sDl > 0 ? "up" : "down"}">${sDl > 0 ? "▲" : "▼"}${pctW(Math.abs(sDl))}%p</em>` : ""} + 유동성 <b>${pctW(1 - +v.wind.sent)}%</b></div></div>
-      <div class="wgrp"><div class="wgl">트렌드캐치 9개</div><div class="wtags">${row("tc")}</div></div>
-      <div class="wgrp"><div class="wgl">유동성 11개</div><div class="wtags">${row("lq")}</div></div>
+      <div class="wgrp"><div class="wgl">트렌드캐치 ${keysOf(v, "tc").length}개</div><div class="wtags">${row("tc")}</div></div>
+      <div class="wgrp"><div class="wgl">유동성 ${keysOf(v, "lq").length}개</div><div class="wtags">${row("lq")}</div></div>
       ${reasons.length ? `<details class="wdet"><summary>바꾼 이유 (${reasons.length})</summary><ul>${reasons.map(([key, t]) => `<li><b>${esc(key === "wind" ? "풍향계 비중" : key.includes(".") ? (key.startsWith("tc.") ? "트렌드캐치 · " : "유동성 · ") + nm(key.slice(0, 2), key.slice(3)) : key)}</b> ${esc(t)}</li>`).join("")}</ul></details>` : ""}
       ${revs ? `<details class="wdet"><summary>점검 기록</summary><table>${revs}</table></details>` : ""}
       <details class="wdet"><summary>가중치 버전 (${W.versions.length})</summary><table>${hist}</table></details>
@@ -812,13 +838,13 @@
     const i = idxOf(S.date), cm = (await comments(D()[i])) || {};
     $("#view").innerHTML = `<div class="grid g2">${compositeCard("tc", i, cm)}${quadrant(i, cm)}</div>
       ${pointsBlock("트렌드캐치 코멘트", asPoints(cm.tc_points, cm.tc), "tc")}
-      <div class="card sec"><h3 class="tch">9개 지표</h3><div class="cap">타일을 누르면 계산 방법과 의미가 나옵니다 · 점수 5 = 광기, 1 = 공포</div>
+      <div class="card sec"><h3 class="tch">${M.tc.length}개 지표</h3><div class="cap">타일을 누르면 계산 방법과 의미가 나옵니다 · 점수 5 = 광기, 1 = 공포</div>
         <div class="grid tg" style="margin-top:8px">${tiles("tc", M.tc, i)}</div></div>
       <div class="sec">${heatmap("tc", M.tc, i)}</div>${corrBlock("tc")}${analysisBlock("tc")}`;
     bindInfo(); bindQuad(i, cm); bindHeat(); bindCorr("tc", i); drawMini("tc", i); bindAnalysis("tc");
   }
   function catCards(i) {
-    const rows = ["A", "B", "C", "D"].map((c) => {
+    const rows = lqCats().map((c) => {
       const ms = M.lq.filter((m) => m.cat === c), E = M.LQ_CAT_EASY[c]; let ws = 0, sc = 0;
       ms.forEach((m) => { const s = at("s_lq_" + m.key, i), w = wOf("lq", m.key, i); if (s != null) { ws += w; sc += s * w; } });
       const avg = ws ? sc / ws : null, r = avg == null ? null : Math.min(5, Math.max(1, Math.round(avg)));
@@ -828,17 +854,17 @@
         <div class="cq">${E.q}</div>
         <div class="cvl"><span class="cs num" style="color:${col}">${avg == null ? "—" : avg.toFixed(1)}</span>${r ? `<span class="pill" style="background:${col}">${M.EASY5[r]}</span>` : ""}<span class="ca">${ans}</span></div>
         <div class="cbar">${LQC.map((x) => `<i style="background:${x}"></i>`).join("")}${avg == null ? "" : `<b style="left:${(avg - 1) / 4 * 100}%"></b>`}</div>
-        <div class="cm">들어간 지표: ${E.members}</div></div>`;
+        <div class="cm">들어간 지표: ${c === "E" ? ms.map((m) => m.short || m.name).join(" · ") : E.members + ms.filter((m) => m.isNew).map((m) => " · " + (m.short || m.name)).join("")}</div></div>`;
     }).join("");
-    return `<div class="card"><h3 class="lqh">돈의 4가지 측면</h3><div class="cap">카테고리 점수 = 그 안 지표 점수의 가중평균 · 1 = 매우 빠듯 ~ 3 = 보통 ~ 5 = 매우 넉넉</div><div class="cats">${rows}</div></div>`;
+    return `<div class="card"><h3 class="lqh">돈의 ${lqCats().length}가지 측면</h3><div class="cap">카테고리 점수 = 그 안 지표 점수의 가중평균 · 1 = 매우 빠듯 ~ 3 = 보통 ~ 5 = 매우 넉넉</div><div class="cats">${rows}</div></div>`;
   }
   async function viewLQ() {
     const i = idxOf(S.date), cm = (await comments(D()[i])) || {};
-    const byCat = ["A", "B", "C", "D"].map((c) => `<div class="catlb">${c}. ${M.LQ_CAT_EASY[c].name} — ${M.LQ_CATS[c]}</div><div class="grid tg">${tiles("lq", M.lq.filter((m) => m.cat === c), i)}</div>`).join("");
+    const byCat = lqCats().map((c) => `<div class="catlb">${c}. ${M.LQ_CAT_EASY[c].name} — ${M.LQ_CATS[c]}</div><div class="grid tg">${tiles("lq", M.lq.filter((m) => m.cat === c), i)}</div>`).join("");
     $("#view").innerHTML = `<div class="grid g2">${compositeCard("lq", i, cm)}${catCards(i)}</div>
       ${pointsBlock("유동성 코멘트", asPoints(cm.lq_points, cm.lq), "lq")}
       <div class="note" style="margin:8px 2px 0">심리 × 유동성 사분면은 <button class="lnk" data-go="tc">트렌드캐치 탭</button>과 <button class="lnk" data-go="wind">풍향계 탭</button>에 있습니다.</div>
-      <div class="card sec"><h3 class="lqh">11개 지표</h3><div class="cap">타일을 누르면 계산 방법과 의미가 나옵니다 · 점수 5 = 풍부, 1 = 경색 · 타일의 % = 가중치</div>${byCat}</div>
+      <div class="card sec"><h3 class="lqh">${M.lq.length}개 지표</h3><div class="cap">타일을 누르면 계산 방법과 의미가 나옵니다 · 점수 5 = 풍부, 1 = 경색 · 타일의 % = 가중치</div>${byCat}</div>
       <div class="sec">${heatmap("lq", M.lq, i)}</div>${corrBlock("lq")}${analysisBlock("lq")}`;
     bindInfo(); bindGo(); bindHeat(); bindCorr("lq", i); drawMini("lq", i); bindAnalysis("lq");
   }
@@ -1014,7 +1040,7 @@
         <table>${rows}</table><h4>판단 구간</h4><table>${[["4.5 ~ 5.0", "광기"], ["3.5 ~ 4.5", "과열"], ["2.5 ~ 3.5", "중립"], ["1.5 ~ 2.5", "불안"], ["1.0 ~ 1.5", "공포"]].map(([r, l]) => `<tr class="${l === labelTC(v) ? "hit" : ""}"><td>${r}</td><td>${l}</td><td style="text-align:right">${M.TC_ACTION[l]}</td></tr>`).join("")}</table>`;
     }
     const rows = M.lq.map((m) => { const s = at("s_lq_" + m.key, i); return `<tr><td>${m.cat}. ${m.name}</td><td style="text-align:right">${fmtW(wOf("lq", m.key, i))}%</td><td style="text-align:right">${s ?? "—"}</td></tr>`; }).join("");
-    const catP = ["A", "B", "C", "D"].map((c) => `${c} ${M.LQ_CAT_EASY[c].name} ${Math.round(M.lq.filter((m) => m.cat === c).reduce((a, m) => a + wOf("lq", m.key, i), 0))}%`).join(" · ");
+    const catP = lqCats().map((c) => `${c} ${M.LQ_CAT_EASY[c].name} ${Math.round(M.lq.filter((m) => m.cat === c).reduce((a, m) => a + wOf("lq", m.key, i), 0))}%`).join(" · ");
     return `<h2>유동성 종합</h2><div class="cur"><span class="v num">${v ?? "—"}</span>${pill(labelLQ(v), colLQ(labelLQ(v)))}<span class="muted">${short(D()[i])} 기준</span></div>
       <h4>무엇인가요</h4><p>주식시장에 돈이 얼마나 넉넉하게 돌고 있는지를 11개 지표로 잰 점수입니다. 넉넉할수록(풍부) 주식에 순풍, 빠듯할수록(경색) 역풍입니다.</p>
       <h4>계산 방법</h4><p>11개 지표 점수의 가중평균 (${catP}). 값이 없는 지표는 빼고 나머지 가중치로 다시 나눕니다 (전체 가중치의 70% 이상 있을 때만 계산). 가중치는 매주 토요일 점검합니다(풍향계 탭 아래 '가중치 점검').</p>
@@ -1053,6 +1079,8 @@
       [S.series, S.corr, S.analysis, S.notes, S.wind] = await Promise.all([getJSON("data/series.json"), getJSON("data/corr.json").catch(() => null), getJSON("data/analysis.json").catch(() => null),
         getJSON("data/notes/companies.json").catch(() => ({})), getJSON("data/wind.json").catch(() => null)]);
       S.weights = await getJSON("data/weights.json").catch(() => null);
+      S.factors = await getJSON("data/factors.json").catch(() => null);
+      addFactors(S.factors);
       if (S.wind) S.windIdx = new Map(S.wind.dates.map((d, k) => [d, k]));
     } catch (e) {
       $("#view").innerHTML = `<div class="empty">데이터를 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div>`; return;

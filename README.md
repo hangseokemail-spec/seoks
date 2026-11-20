@@ -18,6 +18,8 @@
 - `scripts/check_comments.py` — 코멘트 형식·숫자 대조 검사
 - `scripts/export_db.py` — 날짜별 기록 DB `data/db.csv` (구글 시트 'Seoks 날짜별 기록'이 IMPORTDATA로 읽음)
 - `GUIDE.md` — 작업 지침서 개요(원칙·역할·일정·지침서 갱신 규칙). `scripts/guide_export.py`가 GUIDE·DAILY·FABLE·WEIGHTS와 현재 가중치를 한 문서로 묶어 구글 드라이브 'AI › 증시현황판'에 올림(바뀔 때마다 새 판, 이전 판은 '지난 판' 폴더). 기록은 `data/guide_sync.json`
+- `data/factors.json` · `scripts/factors.py` — 새 팩터 등록부(관찰 → 사용 → 뺌)와 계산(공개 지연 반영, 최근 3년 위치 5등분 점수, 장기 성적). 원자료는 GitHub 작업 factors·매일 수집이 FRED에서 받음(`data/factors/`, 장기 지수 `data/hist/index_long.json`)
+- `scripts/committee.py` — 새 팩터 위원회(Fable 2 · Opus 3): 근거(brief) → 1라운드 제안 → 안건(items) → 2라운드 투표 → 합의 집계(tally). WEIGHTS.md 8절
 - `data/weights.json` — 지표 가중치와 풍향계 심리·유동성 비중의 버전 기록(적용 시작일별). 매주 토요일 점검(주간·월간·분기, 조정 폭 분기 > 월간 > 주간) — **가장 최신 Claude 모델**(지금 Fable 5.2)이 결정, Opus가 적용
 - `scripts/weights.py` — 가중치 버전을 읽어 종합 점수·풍향계 계산 (collect.py·wind.py·brief.py가 사용)
 - `scripts/weights_eval.py` / `WEIGHTS.md` — 가중치 점검: 근거 자료(brief: 풍향계 방향 적중 점검 + 지표별 관계) → 결정 모델이 후보 시험·결정 → Opus가 그대로 적용(apply)

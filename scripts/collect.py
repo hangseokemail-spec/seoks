@@ -364,9 +364,20 @@ def build_series():
             col["s_lq_y10"] = pd.Series([s_y10(a, b) for a, b in zip(col["lq_y10"], col["lq_y10_chg"])], index=dates, dtype=float)
         else:
             col[f"s_lq_{k}"] = col[f"lq_{k}"].map(lambda x, f=f: f(x) if pd.notna(x) else np.nan)
+    # 새 팩터(위원회가 넣은 것, data/factors.json status=active): 원값·점수 열을 더한다 — scripts/factors.py
+    import factors as FA
+    try:
+        R = FA.load()
+        for k in FA.keys(R):
+            f = R["factors"][k]
+            v, sc, ob = FA.series_for(k, dates, f)
+            col[f"{f['group']}_{k}"], col[f"s_{f['group']}_{k}"] = v, sc
+            obs[k] = ob
+    except Exception as ex:  # noqa: BLE001
+        print(f"! 새 팩터 계산 실패: {ex}", flush=True)
     # 종합 점수: data/weights.json 의 가중치 버전(적용 시작일별)을 따른다 — scripts/weights.py
     import weights as WM
-    comp = WM.composite(pd.DataFrame({f"s_tc_{k}": col[f"s_tc_{k}"] for k in TC} | {f"s_lq_{k}": col[f"s_lq_{k}"] for k in LQ}, index=dates))
+    comp = WM.composite(pd.DataFrame({k: v for k, v in col.items() if k.startswith(("s_tc_", "s_lq_"))}, index=dates))
     col["tc_n"] = comp["tc_n"]
     col["tc"] = comp["tc"]
     col["lq_w"] = comp["lq_w"]

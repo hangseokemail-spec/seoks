@@ -28,17 +28,24 @@ git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
 
 ## 1. 준비 (1분) — Opus
 1. 저장소 연결: `hangseokemail-spec/seoks` (push 권한). `git clone --depth 1 https://github.com/hangseokemail-spec/seoks /home/claude/seoks`
-2. `pip install pandas numpy --break-system-packages -q` (없을 때만)
+2. `pip install pandas numpy holidays --break-system-packages -q` (없을 때만)
+3. `python3 scripts/usday.py` → 이번 작업의 미국 날짜(`us_date`)·휴장 여부(`trading`)·웹 지표 중 오늘 있어야 할 기준일(`due`)·빠진 지표(`missing`).
+   - `trading: false`면 아무것도 커밋하지 않고 "오늘은 미국 휴장" 한 줄로 끝낸다(선생님 지시: 미국장이 쉬면 발간하지 않음).
 
-## 2. 수집 (2~3분) — Opus가 GitHub 작업에 맡김
-- 위 '맡기는 법'대로 `echo "run $(date -u +%FT%TZ)" > .github/triggers/collect` 를 푸시한다. GitHub 작업이 비밀값으로 `scripts/collect.py`와 이어서 `scripts/analyze.py`(지표 예측력 분석)를 돌리고 `data/`를 커밋한다.
+> **진행 순서 (선생님 지시 2026-11-21): 1 → 3 → 2 → 4 → 5 …**
+> 웹 지표(3단계)를 **먼저** 채우고, 빠진 값이 없을 때만 2단계 수집을 맡긴다. 수집이 끝나면 사이트 숫자가 바로 바뀌므로, 값이 빠진 채로 현황판이 올라가지 않게 하려는 순서다.
+> 원칙은 **정해진 시각(06:20 전후)에 발간**이다. 값을 끝내 못 찾아 발간을 멈추는 일은 마지막 수단이다(3단계 4)).
+
+## 2. 수집 (2~3분) — Opus가 GitHub 작업에 맡김 · **3단계를 마친 뒤에**
+- 3단계에서 바꾼 `data/manual.json`을 같은 커밋에 넣어, 위 '맡기는 법'대로 `echo "run $(date -u +%FT%TZ)" > .github/triggers/collect` 를 푸시한다. GitHub 작업이 비밀값으로 `scripts/collect.py`와 이어서 `scripts/analyze.py`(지표 예측력 분석)를 돌리고 `data/`를 커밋한다.
 - 끝나면 `git pull` 후 `data/runs/collect_last.json`을 본다: `result.date`가 오늘 미국 날짜이고 `result.board: true`면 정상. `log_tail`에 진행 기록이 있다.
 - `finviz 날짜와 지수 날짜가 달라 현황판 생략`이면 5분 기다렸다 `echo "--force-board $(date -u +%FT%TZ)"`로 한 번만 다시 맡긴다.
-- 미국 휴장일이면(날짜가 어제 그대로) 더 커밋하지 말고 "오늘은 미국 휴장" 한 줄로 끝낸다.
+- `result.date`가 `us_date`보다 이르면(휴장 목록에 없는 임시 휴장 등) 더 커밋하지 말고 "오늘은 미국 휴장" 한 줄로 끝낸다.
 
 ## 3. 웹 지표 보충 (3분) — Opus → `data/manual.json`
 원칙: **매일 나오지 않는 값은 나온 날 반영하고, 그 전까지는 가장 최근 발표값을 그대로 쓴다** (화면에 기준일이 자동 표시됨).
-순서 (선생님 지시 2026-11-21): **1) 자체 조사**로 찾고, 공포탐욕·풋콜·신용융자 중 자체 조사로 못 찾은 것만 **2) 구글 드라이브 '수치 조사_gemini'** 값으로 채운다. 그래도 없으면 이전 값을 유지한다.
+**오늘 채울 값** = 1단계 `usday.py`의 `missing`(지표별 `due` 기준일보다 오래된 것). `missing`이 비어 있으면 3단계는 건너뛴다(장중 값을 마감 값으로 바꾸는 일만 할 수 있으면 한다).
+순서 (선생님 지시 2026-11-21): **1) 자체 조사**로 찾고 → 공포탐욕·풋콜·신용융자 중 못 찾은 것은 **2) 구글 드라이브 '수치 조사_gemini'** 시트 → 그래도 없는 값은 **3) 조사 범위를 넓혀 다시** 찾고 → 정말 못 찾을 때만 **4) 선생님께 알리고 발간을 멈춘다.**
 
 **1) 자체 조사 — 값이 빠지지 않게 지표마다 출처를 여러 곳 둔다.** 아래 순서대로 시도하고, 한 곳이 안 열리면 같은 주소를 다시 열지 말고 바로 다음 출처로 넘어간다. 검색은 한 번에 병렬로.
 - **주소는 먼저 웹검색으로 찾고, 검색 결과에 나온 주소를 그대로 연다.** 예약 작업에서 직접 만든 주소(예: Cboe `?dt=<날짜>`)는 승인 대기로 막힌다(11/20에 Cboe·YCharts가 이렇게 막힘).
@@ -54,9 +61,11 @@ git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
   2. Cboe 일간 통계 페이지 (검색 결과 주소)
   3. thetrading.tools put-call-ratio (Cboe 원자료, 하루~며칠 늦음)
   어제 값이 아직 없으면 나와 있는 가장 최근 날짜까지 채운다. `{"date": "<미국 날짜>", "value": x.xx, "src": "<출처> (Cboe 원자료)"}`
-- **aaii** (목요일 발표): 강세%, 약세%, spread=강세−약세. date는 발표일(목).
+- **aaii** (목요일 발표): 강세%, 약세%, spread=강세−약세. date는 발표일(목). 구글 시트에 없는 값이라 출처를 넓게 둔다.
   1. AAII 공식 Sentiment Survey 페이지
-  2. 결과를 인용한 기사 (검색어 `AAII sentiment survey <Month D>` — Investing.com·MarketWatch·Seeking Alpha 등)
+  2. YCharts `US Investor Sentiment, % Bullish` · `% Bearish` (날짜별 표)
+  3. 결과를 인용한 기사 (검색어 `AAII sentiment survey <Month D>`, `AAII bullish bearish <Month D>` — Investing.com·MarketWatch·Seeking Alpha·Yahoo Finance·Nasdaq.com 등)
+  4. 한국어 기사 (검색어 `AAII 투자심리 <M월 D일>` — 연합인포맥스·뉴스핌·한경 등)
 - **margin** (신용융자, 월 1회, 다음 달 셋째 주 공개):
   1. FINRA 공식 Margin Statistics (finra.org/investors/margin-statistics) — 백만 달러 정확값. 1년 전 같은 달 값도 표에 있어 전년비를 직접 계산한다 (11/20 확인)
   2. YCharts `finra_margin_debt` (전년비 표기값 있음)
@@ -66,9 +75,19 @@ git add -A && git commit -qm "<일>" && git -c push.negotiate=true push -q
 **2) 자체 조사로 못 찾은 지표는 구글 드라이브 '수치 조사_gemini'에서 확인한다.** 'AI › 증시현황판' 폴더(id `1Naz2cTUd4SCknOTXroSLgvujROrxPRpU`)의 구글 시트 '수치 조사_gemini'(id `1A87drnPjcDJtBT1ryaOjOO0WYATT8yKmNwr9hdQGNbA`), '일별 기록' 탭. 매일 오전 6시경 한 줄씩 기록된다. 구글 드라이브 `read_file_content`로 읽는다.
 - 열: 수집일자(KST) · Fear & Greed 지수·등급·기준일(ET) · Total Put/Call · Equity Put/Call · Put/Call 기준일(ET) · Margin Debt 당월 잔액($M) · 전년동월 잔액($M) · YoY · 기준월 · 비고.
 - 수집일자가 오늘(KST)인 줄에서 필요한 칸만 쓴다: fg = 지수(date = F&G 기준일), pc = Total Put/Call(date = Put/Call 기준일), margin = 당월 잔액·YoY(month = 기준월). src는 `"수치 조사_gemini (구글 드라이브)"`. 기준일이 manual.json의 마지막 값보다 새로울 때만 넣는다.
-- 오늘 줄이 아직 없으면 기다리지 않는다(06:04 작업이 3단계에 닿는 06:10 전후에 아직 기록 전일 수 있음). 9-1단계를 마친 뒤 한 번 더 보고, 그때 생겼으면 manual.json에만 넣어 둔다(다음 작업부터 반영, 그날 점수는 다시 계산하지 않음).
-- 이 시트에서도 못 구하면 이전 값을 유지하고, research의 notes와 마지막 메시지에 `<지표> 새 값 못 구함 (시도: A·B·C·gemini 시트)`를 적는다.
-- 바꿨으면 manual.json을 커밋하면서 `echo "--no-board $(date -u +%FT%TZ)" > .github/triggers/collect` 로 다시 맡긴다(끝나면 `git pull`).
+- 오늘 줄이 아직 없으면(06:04 작업이 여기 닿는 06:10 전후에 아직 기록 전일 수 있음) 3)을 하면서 **3분마다 다시 확인한다(06:30까지)**. 그 사이 생기면 그 값을 쓴다.
+
+**3) 조사 범위를 넓혀 다시 찾는다.** 2)까지 와도 빠진 값(특히 시트에 없는 AAII)은
+- 위 목록에서 아직 안 연 출처를 모두 연다. 검색어를 바꿔(영어·한국어, `Nov 20`·`November 20, 2026`·`11/20` 같은 날짜 표기, 지표의 다른 이름) 최소 2번 더 찾는다.
+- 그날 값을 숫자로 인용한 기사·데이터 제공사·공식 통계면 쓸 수 있다(src에 매체 이름, 장중이면 '장중'). 기준일이 `due`와 맞아야 한다.
+- 2)의 시트를 마지막으로 한 번 더 본다.
+
+**4) 정말 못 찾을 때만 — 선생님께 알리고 발간을 멈춘다.** (선생님 지시 2026-11-21: "정 못찾는 경우에만 나한테 알림 보내고 현황판 발간을 멈춰. 그러면 내가 알림 보고 수치 찾아서 넣어줄께. 다만 그런 경우는 가능하면 없으면 좋겠고, 정해진 시간에 발간이 되면 좋겠어.")
+- 2단계 수집을 맡기지 않는다(사이트는 전날 판 그대로). 아무것도 커밋하지 않는다. 다른 사람 알림(9단계)도 보내지 않는다.
+- `PushNotification`으로 알린다(200자 안). 그리고 같은 내용을 마지막 메시지로 쓰고 이 대화에서 선생님 답을 기다린다(턴을 끝낸다):
+  `Seoks <M/D> 발간 보류 — 못 찾은 값: <지표>(<기준일>)[, …] · 시도: <출처들>·gemini 시트 · 값을 이 대화에 답장하거나 '수치 조사_gemini' 시트에 적어 주시면 바로 발간합니다`
+- 선생님이 답하면: 답장 값(또는 시트에 새로 적힌 값)을 manual.json에 넣고(src `"선생님 입력 (<날짜>)"`) 2단계부터 이어서 끝까지 한다. 마지막 메시지에 "선생님 입력 값으로 늦게 발간" 한 줄을 붙인다.
+- 원칙은 정해진 시각 발간이다. 4)로 가기 전에 1)~3)을 빠짐없이 했는지 확인한다.
 - finviz는 요청이 많으면 일시 차단되므로 collect.py 외에 finviz를 따로 호출하지 않는다.
 
 ## 4. 웹 사실 조사 (2~3분) — Opus → `data/raw/research_<날짜>.json`

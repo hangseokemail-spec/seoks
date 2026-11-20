@@ -2,15 +2,19 @@
  "_안내": "구글 드라이브 'AI › 증시현황판' 작업 지침서 동기화 기록. scripts/guide_export.py가 쓴다(GUIDE.md 7절).",
  "folder_id": "1Naz2cTUd4SCknOTXroSLgvujROrxPRpU",
  "old_folder_id": "1wpcFdHsf7HAVKv9p6iia9z2CXM0S_gSr",
- "doc_id": "1SN2SfPBBnRnSrpZ4GPutQpqTHp_-LXSQmZ4ssbfVbsw",
- "hash": "97ed0309f702b3b7e11998007f37d2b50688db7672d528d77cc75125b11d30e9",
- "stamp": "2026-11-20 06:14",
- "commit": "52b5986",
- "synced_at": "2026-11-20T06:14:42+09:00",
+ "doc_id": "1OAnZorysNTYMxj2hcyi3uhwe0PBQeysHYyDPVsFRlYY",
+ "hash": "5aeea8c9d129c87037c6e4cb752156f379068bbb630f71bcd34cbf5f0de00173",
+ "stamp": "2026-11-21 06:51",
+ "commit": "bcbbade",
+ "synced_at": "2026-11-21T06:51:38+09:00",
  "history": [
   {
    "doc_id": "1nR1KnuaIhsLMoCrQpCDwMsIX136sBeMNzD0hAj0wUKg",
    "stamp": "2026-11-20 06:13"
+  },
+  {
+   "doc_id": "1SN2SfPBBnRnSrpZ4GPutQpqTHp_-LXSQmZ4ssbfVbsw",
+   "stamp": "2026-11-20 06:14"
   }
  ]
 }

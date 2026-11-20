@@ -1,0 +1,26 @@
+{
+ "started": "2026-11-21 06:36:14 KST",
+ "rc": 0,
+ "result": {
+  "t10y2y": "ok",
+  "claims": "ok",
+  "cpi": "ok",
+  "unrate": "ok",
+  "indpro": "ok",
+  "retail": "ok",
+  "payems": "ok",
+  "wei": "ok",
+  "stlfsi": "ok",
+  "realy": "ok",
+  "igs": "ok",
+  "umcsent": "ok",
+  "vixts": "ok",
+  "ndxspx": "ok",
+  "a50": "ok",
+  "_index_long": "ok"
+ },
+ "log_tail": [
+  "{\"t10y2y\": \"ok\", \"claims\": \"ok\", \"cpi\": \"ok\", \"unrate\": \"ok\", \"indpro\": \"ok\", \"retail\": \"ok\", \"payems\": \"ok\", \"wei\": \"ok\", \"stlfsi\": \"ok\", \"realy\": \"ok\", \"igs\": \"ok\", \"umcsent\": \"ok\", \"vixts\": \"ok\", \"ndxspx\": \"ok\", \"a50\": \"ok\", \"_index_long\": \"ok\"}"
+ ],
+ "finished": "2026-11-21 06:36:20 KST"
+}

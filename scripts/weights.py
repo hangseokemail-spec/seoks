@@ -2,7 +2,7 @@
 
 - 가중치는 '버전'으로 쌓인다. 각 버전은 적용 시작일(from)이 있고, 그날부터 다음 버전 전날까지의 점수에 쓰인다.
   → 이미 발표한 날의 점수·코멘트는 바뀌지 않는다(그날 쓰던 가중치 그대로).
-- 2주마다 Claude Fable이 점검해 새 버전을 더한다(scripts/weights_eval.py, WEIGHTS.md).
+- 매주 토요일 점검해 새 버전을 더한다(scripts/weights_eval.py, WEIGHTS.md). 새 팩터를 넣거나 빼면 버전마다 지표 목록이 달라진다.
 """
 import json
 import os
@@ -24,7 +24,15 @@ def load(path=PATH):
         return json.load(f)
 
 
-def norm(d, keys):
+def keys_of(v, grp):
+    """버전(또는 후보)에 들어 있는 지표 키 — 원래 지표는 정해진 순서, 새 팩터는 그 뒤."""
+    base = TC_KEYS if grp == "tc" else LQ_KEYS
+    d = v[grp]
+    return [k for k in base if k in d] + [k for k in d if k not in base]
+
+
+def norm(d, keys=None):
+    keys = keys if keys is not None else list(d)
     tot = sum(float(d.get(k, 0)) for k in keys)
     return {k: float(d.get(k, 0)) / tot * 100 for k in keys}
 
@@ -54,21 +62,25 @@ def composite(scores, ver=None, W=None):
     반환: DataFrame(tc, tc_n, lq, lq_w)."""
     W = W or load()
     dates = scores.index
-    tcs = pd.DataFrame({k: scores[f"s_tc_{k}"] for k in TC_KEYS}, index=dates).astype(float)
-    lqs = pd.DataFrame({k: scores[f"s_lq_{k}"] for k in LQ_KEYS}, index=dates).astype(float)
+    col = lambda grp, k: scores[f"s_{grp}_{k}"].astype(float) if f"s_{grp}_{k}" in scores else pd.Series(np.nan, index=dates)
     vers = [ver] if ver is not None else W["versions"]
     vi = np.zeros(len(dates), dtype=int) if ver is not None else version_index(dates, W)
     tc = pd.Series(np.nan, index=dates)
     lq = pd.Series(np.nan, index=dates)
     lqw = pd.Series(np.nan, index=dates)
-    tcn = tcs.notna().sum(axis=1)
+    tcn = pd.Series(0, index=dates)
     for k, v in enumerate(vers):
         m = vi == k
         if not m.any():
             continue
+        # 버전마다 들어 있는 지표가 다를 수 있다(새 팩터 추가·빼기). 지표 목록 = 그 버전의 가중치 키
+        tk, lk = keys_of(v, "tc"), keys_of(v, "lq")
+        tcs = pd.DataFrame({x: col("tc", x) for x in tk}, index=dates)
+        lqs = pd.DataFrame({x: col("lq", x) for x in lk}, index=dates)
+        tcn[m] = tcs[m].notna().sum(axis=1)
         # 원래 계산 순서를 그대로 따른다(반올림 경계에서 값이 달라지지 않게): 같은 비중이면 단순평균, 아니면 원 가중치로 가중평균
-        wt = pd.Series({k: float(v["tc"][k]) for k in TC_KEYS})
-        wl = pd.Series({k: float(v["lq"][k]) for k in LQ_KEYS})
+        wt = pd.Series({x: float(v["tc"][x]) for x in tk})
+        wl = pd.Series({x: float(v["lq"][x]) for x in lk})
         a, b = tcs[m], lqs[m]
         if wt.nunique() == 1:
             tc[m] = rnd1(a.mean(axis=1))

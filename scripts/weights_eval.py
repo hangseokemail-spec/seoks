@@ -1,7 +1,7 @@
 """가중치 점검 도구 — 매주 토요일 (주간 · 월간 · 분기).
 가장 최신 Claude 모델(지금 Claude Fable 5.2)이 근거를 보고 결정하고, Opus가 근거 자료를 만들고 결정을 그대로 적용한다.
 
-python3 scripts/weights_eval.py due [YYYY-MM-DD]       → 그날(기본: 오늘 한국 시각)의 점검 단계: weekly | monthly | quarterly | no
+python3 scripts/weights_eval.py due [YYYY-MM-DD]       → 그날(기본: 오늘 한국 시각)의 점검 단계: weekly | monthly | quarterly | no | done(이미 함·진행 중)
 python3 scripts/weights_eval.py brief [단계]            → data/raw/weights_brief.json  (근거 자료: 풍향계 방향 적중 점검 + 지표별·종합 점수와 이후 지수의 관계)
 python3 scripts/weights_eval.py test  후보.json         → 후보 가중치였다면 종합 점수·풍향계가 이후 지수를 얼마나 맞혔을지 + 단계별 한도 검사
 python3 scripts/weights_eval.py apply 결정.json         → 한도 검사 통과 시 data/weights.json 에 새 버전(다음 거래일부터) 또는 '유지' 기록
@@ -28,6 +28,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import weights as WM  # noqa: E402
+import factors as FA  # noqa: E402
 
 ROOT = WM.ROOT
 DATA = os.path.join(ROOT, "data")
@@ -51,9 +52,35 @@ def today_kst():
     return dt.datetime.now(KST).date()
 
 
-def load_df():
+def load_df(extra=None):
+    """series.json + 사용 중(active)인 새 팩터 점수(없으면 등록부 원자료로 계산). extra: 더 붙일 팩터 키."""
     s = json.load(open(os.path.join(DATA, "series.json"), encoding="utf-8"))
-    return pd.DataFrame(s["cols"], index=pd.to_datetime(s["dates"]))
+    df = pd.DataFrame(s["cols"], index=pd.to_datetime(s["dates"]))
+    R = FA.load()
+    want = [k for k in FA.keys(R) + list(extra or []) if f"s_{R['factors'][k]['group']}_{k}" not in df]
+    if want:
+        df = pd.concat([df, FA.frame(df.index, want, R)], axis=1)
+    return df
+
+
+def name_of(grp, k):
+    base = TC_NAME if grp == "tc" else LQ_NAME
+    if k in base:
+        return base[k]
+    f = FA.load()["factors"].get(k)
+    return f["name"] if f else k
+
+
+def committee_result(level=None):
+    """오늘 위원회 합의 결과(data/raw/committee_result.json). 없거나 날짜·단계가 다르면 빈 결과."""
+    p = os.path.join(RAW, "committee_result.json")
+    empty = {"adds": [], "removes": [], "registers": []}
+    if not os.path.exists(p):
+        return empty
+    c = json.load(open(p, encoding="utf-8"))
+    if c.get("date") != today_kst().isoformat() or (level and c.get("level") != level):
+        return empty
+    return c
 
 
 def weekly_idx(df):
@@ -238,40 +265,57 @@ def check_summary(dc):
 
 
 # ---------------------------------------------------------------- 한도 검사
-def check(cand, cur, rules, level):
-    """단계별 한도 검사. 반환: (통과 여부, 오류 목록, 새 가중치(%로 정규화))"""
+def check(cand, cur, rules, level, com=None):
+    """단계별 한도 검사. com: 위원회 합의 결과(넣을 팩터는 정해진 가중치로, 뺄 팩터는 빼고). 반환: (통과 여부, 오류 목록, 새 가중치(%))"""
     errs = []
     new = {}
     L = (rules.get("levels") or {}).get(level)
     if not L:
         return False, [f"level '{level}' 없음 — weekly | monthly | quarterly"], {}
+    com = com or {"adds": [], "removes": []}
     step = {"tc": L["tc_step"], "lq": L["lq_step"]}
-    for grp, keys in (("tc", WM.TC_KEYS), ("lq", WM.LQ_KEYS)):
+    REG = FA.load()["factors"]
+    for grp in ("tc", "lq"):
+        adds = {a["key"]: float(a["weight"]) for a in com.get("adds", []) if a["group"] == grp}
+        rems = {x["key"] for x in com.get("removes", []) if x["group"] == grp}
+        want = [k for k in WM.keys_of(cur, grp) if k not in rems] + [k for k in adds if k not in cur[grp]]
         d = cand.get(grp) or {}
-        miss = [k for k in keys if k not in d]
+        miss, extra = [k for k in want if k not in d], [k for k in d if k not in want]
         if miss:
             errs.append(f"{grp}: 빠진 지표 {miss}")
+        if extra:
+            errs.append(f"{grp}: 넣을 수 없는 지표 {extra} (새 팩터는 위원회 합의로만 넣고, 뺄 지표는 위원회 결과대로 뺍니다)")
+        if miss or extra:
             continue
-        if any(float(d[k]) <= 0 for k in keys):
-            errs.append(f"{grp}: 0 이하 가중치는 안 됨(지표를 빼지 않는다)")
+        if any(float(d[k]) <= 0 for k in want):
+            errs.append(f"{grp}: 0 이하 가중치는 안 됨(지표 빼기는 위원회 합의로만)")
             continue
-        tot = sum(float(d[k]) for k in keys)
+        tot = sum(float(d[k]) for k in want)
         if abs(tot - 100) > 0.05:
             errs.append(f"{grp}: 가중치 합이 {tot:.2f} — 100이 되게 맞춰 주세요(올린 만큼 다른 곳에서 내리기)")
-        nn = WM.norm(d, keys)
-        cc = WM.norm(cur[grp], keys)
+        nn = WM.norm(d, want)
+        cc = WM.norm(cur[grp])
         R = rules[grp]
-        for k in keys:
-            if not R["min"] - 1e-6 <= nn[k] <= R["max"] + 1e-6:
-                errs.append(f"{grp}.{k}: {nn[k]:.2f}% — 허용 범위 {R['min']}~{R['max']}% 밖")
+        for k in want:
+            lo = R["min"] if k in (WM.TC_KEYS if grp == "tc" else WM.LQ_KEYS) else rules.get("new_min", 0.5)
+            if k in adds:
+                if abs(nn[k] - adds[k]) > 0.011:
+                    errs.append(f"{grp}.{k}: 새로 넣는 팩터는 위원회가 정한 {adds[k]}%로 시작합니다(지금 {nn[k]:.2f}%)")
+                continue
+            if not lo - 1e-6 <= nn[k] <= R["max"] + 1e-6:
+                errs.append(f"{grp}.{k}: {nn[k]:.2f}% — 허용 범위 {lo}~{R['max']}% 밖")
             if abs(nn[k] - cc[k]) > step[grp] + 1e-6:
                 errs.append(f"{grp}.{k}: {cc[k]:.2f}% → {nn[k]:.2f}% — {LEVEL_KO[level]} 점검은 한 번에 ±{step[grp]}%p까지")
             if abs(nn[k] - cc[k]) >= 0.05 and not (cand.get("reasons") or {}).get(f"{grp}.{k}"):
                 errs.append(f"{grp}.{k}: 바꿨으면 reasons[\"{grp}.{k}\"]에 이유가 있어야 함")
-        to = sum(max(nn[k] - cc[k], 0) for k in keys)
+        allk = set(want) | set(cc)
+        to = sum(max(nn.get(k, 0) - cc.get(k, 0), 0) for k in allk)
         if to > L["max_turnover"] + 1e-6:
-            errs.append(f"{grp}: 옮긴 가중치 합 {to:.2f}%p — {LEVEL_KO[level]} 점검은 한 번에 {L['max_turnover']}%p까지")
-        new[grp] = {k: round(nn[k], 2) for k in keys}
+            errs.append(f"{grp}: 옮긴 가중치 합 {to:.2f}%p(넣기·빼기 포함) — {LEVEL_KO[level]} 점검은 한 번에 {L['max_turnover']}%p까지")
+        mn = (rules.get("min_count") or {}).get(grp, 0)
+        if len(want) < mn:
+            errs.append(f"{grp}: 지표가 {len(want)}개 — 최소 {mn}개는 있어야 합니다")
+        new[grp] = {k: round(nn[k], 2) for k in want}
     ws = (cand.get("wind") or {}).get("sent")
     R = rules["wind_sent"]
     if ws is None:
@@ -307,14 +351,20 @@ def cmd_brief(level):
     ana = json.load(open(os.path.join(DATA, "analysis.json"), encoding="utf-8"))
     wk = weekly_idx(df)
     ind = {}
-    for grp, keys, names, sign in (("tc", WM.TC_KEYS, TC_NAME, -1), ("lq", WM.LQ_KEYS, LQ_NAME, +1)):
+    REG = FA.load()["factors"]
+    for grp, sign in (("tc", -1), ("lq", +1)):
+        keys = WM.keys_of(cur, grp)
         cw = WM.norm(cur[grp], keys)
         for k in keys:
             sc = df[f"s_{grp}_{k}"].astype(float)
             a = sc.iloc[wk]
             long = ((ana.get("items") or {}).get(f"{grp}_{k}") or {}).get("spx") or {}
+            if k in REG:  # 새로 넣은 팩터: 장기 성적은 factors.long_stats
+                ls = FA.long_stats(k, REG[k])
+                long = {}
             ind[f"{grp}.{k}"] = {
-                "이름": names[k], "그룹": "트렌드캐치" if grp == "tc" else "유동성", "맞는방향": "−(역발상)" if sign < 0 else "+",
+                "이름": name_of(grp, k), "그룹": "트렌드캐치" if grp == "tc" else "유동성", "맞는방향": "−(역발상)" if sign < 0 else "+",
+                "새_팩터": k in REG,
                 "지금_가중치%": round(cw[k], 2), "지금_점수": r(sc.dropna().iloc[-1], 1) if sc.notna().any() else None,
                 "4주전_점수": r(sc.iloc[wk[-5]], 1) if len(wk) > 5 and not np.isnan(sc.iloc[wk[-5]]) else None,
                 "점수있는_주%": r(a.notna().mean() * 100, 0), "점수_바뀐_횟수(주)": int((a.dropna().diff() != 0).sum()),
@@ -324,7 +374,8 @@ def cmd_brief(level):
                 "장기(2010~, analysis.json)": {"시작": long.get("start"), "ic_4주": (long.get("ic") or {}).get("4"),
                                               "ic_13주": (long.get("ic") or {}).get("13"), "유의_13주": (long.get("sig") or {}).get("13"),
                                               "지난13주_반영": long.get("past13"), "역할": long.get("role"),
-                                              "방향": long.get("direction"), "앞뒤절반_같은방향": long.get("stable"), "절반별": long.get("half")} if long else "장기 자료 없음(과거 자료를 받을 수 없는 지표)",
+                                              "방향": long.get("direction"), "앞뒤절반_같은방향": long.get("stable"), "절반별": long.get("half")} if long else
+                    (ls if k in REG else "장기 자료 없음(과거 자료를 받을 수 없는 지표)"),
             }
     ev = composite_eval(df, cur)
     _, w = wind_series(df, W=W)  # 실제로 발행된 풍향계(그 시점 가중치 버전)
@@ -336,13 +387,15 @@ def cmd_brief(level):
         "자료기간": f"{df.index[0]:%Y-%m-%d} ~ {df.index[-1]:%Y-%m-%d} (매주 1회 표본, 5·20·60거래일 뒤 수익률)",
         "풍향계_방향_점검": dc,
         "지금_가중치": {"버전": cur["v"], "적용_시작": cur["from"], "정한_날": cur["set"], "정한_이": cur["by"],
-                     "트렌드캐치%": {k: round(v, 2) for k, v in WM.norm(cur["tc"], WM.TC_KEYS).items()},
-                     "유동성%": {k: round(v, 2) for k, v in WM.norm(cur["lq"], WM.LQ_KEYS).items()},
+                     "트렌드캐치%": {k: round(v, 2) for k, v in WM.norm(cur["tc"], WM.keys_of(cur, "tc")).items()},
+                     "유동성%": {k: round(v, 2) for k, v in WM.norm(cur["lq"], WM.keys_of(cur, "lq")).items()},
                      "풍향계_심리비중": cur["wind"]["sent"], "풍향계_식": WM.formula(cur)[0]},
         "범위": {k: W["rules"][k] for k in ("tc", "lq", "wind_sent")},
         "지금_가중치_성적": ev, "지금_가중치_핵심": headline(ev),
         "지표별": ind,
         "지난_점검": W.get("reviews", [])[-8:],
+        "위원회_결과(오늘)": committee_result(level),
+        "위원회_안내": "새 팩터 넣기·빼기는 위원회(Fable 2 · Opus 3)가 합의한 것만 반영합니다. 위원회_결과의 adds는 정해진 가중치 그대로 넣고, removes는 빼고, 나머지 지표로 합 100을 맞추세요. 결과가 비어 있으면 지표 목록은 그대로입니다.",
         "적용_시작일(새 버전일 때)": f"{next_trading_day(df.index[-1].date()):%Y-%m-%d}",
     }
     os.makedirs(RAW, exist_ok=True)
@@ -358,7 +411,8 @@ def cmd_test(path):
     cur = WM.current(W)
     cand = json.load(open(path, encoding="utf-8"))
     level = cand.get("level")
-    ok, errs, new = check(cand, cur, W["rules"], level)
+    com = committee_result(level)
+    ok, errs, new = check(cand, cur, W["rules"], level, com)
     log = os.path.join(RAW, "weights_tests.log")
     os.makedirs(RAW, exist_ok=True)
     n_before = sum(1 for _ in open(log, encoding="utf-8")) if os.path.exists(log) else 0
@@ -383,6 +437,27 @@ def cmd_test(path):
     sys.exit(0 if ok else 1)
 
 
+def apply_committee(com, start, today, by_version):
+    """위원회 합의를 등록부(data/factors.json)에 반영: 넣은 팩터 active, 뺀 새 팩터 removed, 새 후보 watch 등록."""
+    R = FA.load()
+    for a in com.get("adds", []):
+        f = R["factors"][a["key"]]
+        f.update({"status": "active", "activated": start, "init_weight": a["weight"]})
+    for x in com.get("removes", []):
+        if x["key"] in R["factors"]:
+            R["factors"][x["key"]].update({"status": "removed", "removed": start})
+    for g in com.get("registers", []):
+        d = dict(g["def"])
+        d.update({"status": "watch", "added": today, "by": "위원회 합의"})
+        R["factors"][g["key"]] = d
+    R.setdefault("committee_log", []).append({"date": today, "level": com.get("level"), "version": by_version,
+                                              "adds": [(a["key"], a["weight"]) for a in com.get("adds", [])],
+                                              "removes": [x["key"] for x in com.get("removes", [])],
+                                              "registers": [g["key"] for g in com.get("registers", [])],
+                                              "rejected": com.get("rejected", [])[:20], "summary": com.get("summary", "")})
+    FA.save(R)
+
+
 def cmd_apply(path):
     df = load_df()
     W = WM.load()
@@ -396,32 +471,62 @@ def cmd_apply(path):
     _, w = wind_series(df, W=W)
     chk = check_summary(direction_check(df, w))
     note = (dec.get("direction_note") or "").strip()
+    com = committee_result(level)
+    changes = bool(com.get("adds") or com.get("removes"))
+    sched = W["rules"].setdefault("schedule", {})
+    sched.pop("in_progress", None)
     if dec.get("decision") == "유지":
+        if changes:
+            sys.exit("위원회가 팩터 넣기·빼기를 합의했으므로 '유지'가 아니라 '변경'(합의 반영)이어야 합니다")
         if not (dec.get("summary") or "").strip():
             sys.exit("유지 결정에도 summary(이유)가 필요합니다")
         W.setdefault("reviews", []).append({"date": today, "level": level, "by": by, "decision": "유지", "version": cur["v"],
-                                            "summary": dec["summary"].strip(), "direction_note": note, "check": chk})
+                                            "summary": dec["summary"].strip(), "direction_note": note, "check": chk,
+                                            "committee": com.get("summary") or None})
         set_next(W, today)
         json.dump(W, open(WM.PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-        print(json.dumps({"applied": "유지", "level": level, "version": cur["v"]}, ensure_ascii=False))
+        if com.get("registers") or com.get("date"):
+            apply_committee(com, None, today, cur["v"])
+        print(json.dumps({"applied": "유지", "level": level, "version": cur["v"], "registered": [g["key"] for g in com.get("registers", [])]}, ensure_ascii=False))
         return
-    ok, errs, new = check(dec, cur, W["rules"], level)
+    ok, errs, new = check(dec, cur, W["rules"], level, com)
     if not ok:
         print(json.dumps({"applied": False, "오류": errs}, ensure_ascii=False, indent=1))
         sys.exit(1)
     start = next_trading_day(df.index[-1].date()).strftime("%Y-%m-%d")
-    a, b = headline(composite_eval(df, cur)), headline(composite_eval(df, {"tc": new["tc"], "lq": new["lq"], "wind": new["wind"]}))
+    nv = {"tc": new["tc"], "lq": new["lq"], "wind": new["wind"]}
+    if com.get("adds"):
+        df = load_df([a["key"] for a in com["adds"]])
+    a, b = headline(composite_eval(df, cur)), headline(composite_eval(df, nv))
     v = {"v": cur["v"] + 1, "from": start, "set": today, "level": level, "by": by, "summary": dec["summary"].strip(),
          "tc": new["tc"], "lq": new["lq"], "wind": new["wind"], "reasons": dec.get("reasons") or {},
          "evidence": {"이전": a, "새": b}}
+    if com.get("adds") or com.get("removes"):
+        v["factors"] = {"added": [{"key": x["key"], "group": x["group"], "weight": x["weight"]} for x in com.get("adds", [])],
+                        "removed": [{"key": x["key"], "group": x["group"]} for x in com.get("removes", [])],
+                        "committee": com.get("summary", "")}
     if v["from"] <= cur["from"]:  # 같은 날 두 번 바꾸면 앞 버전을 대신한다
         v["from"] = cur["from"]
     W["versions"].append(v)
     W.setdefault("reviews", []).append({"date": today, "level": level, "by": by, "decision": "변경", "version": v["v"], "from": v["from"],
-                                        "summary": v["summary"], "direction_note": note, "check": chk})
+                                        "summary": v["summary"], "direction_note": note, "check": chk,
+                                        "committee": com.get("summary") or None})
     set_next(W, today)
     json.dump(W, open(WM.PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    print(json.dumps({"applied": "변경", "level": level, "version": v["v"], "from": v["from"]}, ensure_ascii=False))
+    if com.get("date"):
+        apply_committee(com, v["from"], today, v["v"])
+    print(json.dumps({"applied": "변경", "level": level, "version": v["v"], "from": v["from"],
+                      "added": [x["key"] for x in com.get("adds", [])], "removed": [x["key"] for x in com.get("removes", [])],
+                      "registered": [g["key"] for g in com.get("registers", [])]}, ensure_ascii=False))
+
+
+def due(d):
+    """그날 점검 단계. 이미 그날 점검했거나 다른 세션이 진행 중이면 done."""
+    W = WM.load()
+    iso = d.isoformat()
+    if any(r.get("date") == iso for r in W.get("reviews", [])) or (W["rules"].get("schedule") or {}).get("in_progress") == iso:
+        return "done"
+    return level_of(d) or "no"
 
 
 if __name__ == "__main__":
@@ -430,7 +535,7 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     if a[0] == "due":
         d = dt.date.fromisoformat(a[1]) if len(a) > 1 else today_kst()
-        print(level_of(d) or "no")
+        print(due(d))
     elif a[0] == "brief":
         cmd_brief(a[1] if len(a) > 1 else (level_of(today_kst()) or "weekly"))
     elif a[0] == "test":

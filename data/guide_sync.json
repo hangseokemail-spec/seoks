@@ -2,11 +2,11 @@
  "_안내": "구글 드라이브 'AI › 증시현황판' 작업 지침서 동기화 기록. scripts/guide_export.py가 쓴다(GUIDE.md 7절).",
  "folder_id": "1Naz2cTUd4SCknOTXroSLgvujROrxPRpU",
  "old_folder_id": "1wpcFdHsf7HAVKv9p6iia9z2CXM0S_gSr",
- "doc_id": "1WMxkODIxr8QQ63zJMst2yJ4h_JIo9qatPMjF50h9Bio",
- "hash": "ce8a4ab723f9cc9d238369cbe424658082ed6769d7839133af0229f2581e9bc4",
- "stamp": "2026-11-21 07:01",
- "commit": "fda09ce",
- "synced_at": "2026-11-21T07:01:20+09:00",
+ "doc_id": "1fogCaKu0uezDsSIvz_hjp2vWe1G4dJmLla39vx-Tmp4",
+ "hash": "9c1a1ca00bc20e879fc86afdf7fd0e4b8482ef7e47b71d2a6c82dfee2d2055fb",
+ "stamp": "2026-11-21 07:04",
+ "commit": "6926182",
+ "synced_at": "2026-11-21T07:04:58+09:00",
  "history": [
   {
    "doc_id": "1nR1KnuaIhsLMoCrQpCDwMsIX136sBeMNzD0hAj0wUKg",
@@ -19,6 +19,10 @@
   {
    "doc_id": "1OAnZorysNTYMxj2hcyi3uhwe0PBQeysHYyDPVsFRlYY",
    "stamp": "2026-11-21 06:51"
+  },
+  {
+   "doc_id": "1WMxkODIxr8QQ63zJMst2yJ4h_JIo9qatPMjF50h9Bio",
+   "stamp": "2026-11-21 07:01"
   }
  ]
 }

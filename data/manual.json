@@ -25,6 +25,11 @@
    "date": "2026-11-18",
    "value": 25,
    "src": "Benzinga (CNN Fear & Greed 인용, 11/19 개장 전 보도)"
+  },
+  {
+   "date": "2026-11-20",
+   "value": 14,
+   "src": "TokenPost (CNN Fear & Greed 인용, 11/20 장중 보도값)"
   }
  ],
  "aaii": [
@@ -100,6 +105,11 @@
    "date": "2026-11-18",
    "value": 1.05,
    "src": "Cboe daily market statistics"
+  },
+  {
+   "date": "2026-11-19",
+   "value": 1.01,
+   "src": "YCharts (Cboe Total Put/Call 원자료)"
   }
  ],
  "margin": [
@@ -345,14 +355,20 @@
   },
   {
    "month": "2026-08",
-   "value": 1454000,
-   "src": "YCharts (FINRA 원자료, 반올림)"
+   "value": 1453832,
+   "src": "FINRA Margin Statistics (백만 달러 정확값)"
   },
   {
    "month": "2026-09",
-   "value": 1480000,
-   "src": "YCharts (FINRA 원자료) · 전년비는 YCharts 표기값",
+   "value": 1480054,
+   "src": "FINRA Margin Statistics (백만 달러 정확값) · 전년비는 YCharts 표기값",
    "yoy": 31.39
+  },
+  {
+   "month": "2026-10",
+   "value": 1448360,
+   "yoy": 22.36,
+   "src": "FINRA Margin Statistics (백만 달러 정확값) · 전년비는 2025-10 1,183,654 대비 계산"
   }
  ]
 }

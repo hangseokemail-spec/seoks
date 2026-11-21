@@ -409,6 +409,7 @@ def cmd_brief(level):
         "위원회_결과(오늘)": committee_result(level),
         "위원회_안내": "새 팩터 넣기·빼기는 위원회(Fable 2 · Opus 3)가 합의한 것만 반영합니다. 위원회_결과의 adds는 정해진 가중치 그대로 넣고, removes는 빼고, 나머지 지표로 합 100을 맞추세요. 결과가 비어 있으면 지표 목록은 그대로입니다.",
         "적용_시작일(새 버전일 때)": f"{next_trading_day(df.index[-1].date()):%Y-%m-%d}",
+        "팩터_시험실(참고)": lab_digest(),
     }
     os.makedirs(RAW, exist_ok=True)
     p = os.path.join(RAW, "weights_brief.json")
@@ -451,6 +452,22 @@ def cmd_test(path):
     sys.exit(0 if ok else 1)
 
 
+def lab_digest():
+    """팩터 시험실(scripts/factor_lab.py) 결과 요약 — 2010년부터 같은 잣대로 본 후보·등록 팩터 성적(WEIGHTS.md 8-6)."""
+    p = os.path.join(RAW, "factor_lab.json")
+    if not os.path.exists(p):
+        return "시험실 결과 없음(python3 scripts/factor_lab.py run)"
+    o = json.load(open(p, encoding="utf-8"))
+    res = o.get("results", {})
+    pick = lambda k: {kk: res[k].get(kk) for kk in ("name", "판정", "어디", "장기_VIX점수와")} | {  # noqa: E731
+        "13주": (res[k].get("IC") or {}).get("spx_13주"), "4주": ((res[k].get("IC") or {}).get("spx_4주") or {}).get("ic")}
+    return {"date": o.get("date"), "_안내": "매수 쪽 IC(클수록 좋음). 기존 20개 지표의 장기 성적은 지표별.장기를 보세요. 도서관 후보를 넣고 빼는 것은 위원회 몫이고, 여기서는 가중치 판단의 참고로만 씁니다.",
+            "기준선_지금_VIX점수(장기)": o.get("기준선_지금_VIX점수(장기)"),
+            "등록된_팩터": {k: pick(k) for k in res if str(res[k].get("어디", "")).startswith("등록")},
+            "도서관_상위10": [x | {"VIX몫_뺀_13주IC": ((res[x["키"]].get("장기_VIX점수와") or {}).get("VIX몫_뺀_13주IC"))}
+                          for x in o.get("순위_13주IC", []) if x.get("어디") == "도서관"][:10]}
+
+
 def apply_committee(com, start, today, by_version):
     """위원회 합의를 등록부(data/factors.json)에 반영: 넣은 팩터 active, 뺀 새 팩터 removed, 새 후보 watch 등록."""
     R = FA.load()
@@ -470,6 +487,11 @@ def apply_committee(com, start, today, by_version):
                                               "registers": [g["key"] for g in com.get("registers", [])],
                                               "rejected": com.get("rejected", [])[:20], "summary": com.get("summary", "")})
     FA.save(R)
+    try:
+        import factor_lab as LAB
+        LAB.sync_status()
+    except Exception:  # noqa: BLE001  (도서관 상태 맞추기는 실패해도 적용은 그대로)
+        pass
 
 
 def cmd_apply(path):

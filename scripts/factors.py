@@ -21,6 +21,9 @@ import urllib.request
 import numpy as np
 import pandas as pd
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sources as SRC  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 REG = os.path.join(DATA, "factors.json")
@@ -30,7 +33,7 @@ KST = dt.timezone(dt.timedelta(hours=9))
 FETCH_START = "2000-01-01"
 BUILTIN_TC = ["fg", "aaii", "vix", "hy", "pc", "margin", "a200", "rsi", "dev"]
 BUILTIN_LQ = ["fed", "nl", "m2", "effr", "hy", "dxy", "margin", "bank", "vol", "nfci", "y10"]
-TYPES = ("fred", "fred_ratio", "hist")
+TYPES = ("fred", "fred_ratio", "hist", "mix", "calc")
 TRANSFORMS = ("level", "chg", "pct")
 
 
@@ -66,6 +69,17 @@ def validate(key, f, R=None):
         e.append("fred: source.id(FRED 시리즈 ID) 필요")
     if src.get("type") == "fred_ratio" and not (src.get("num") and src.get("den")):
         e.append("fred_ratio: source.num, source.den 필요")
+    if src.get("type") == "mix":
+        for side in ("num", "den"):
+            lg = src.get(side)
+            if side == "num" and not lg:
+                e.append("mix: source.num(다리) 필요")
+            if lg and lg.get("src") not in ("fred", "naver", "naver_index", "csv"):
+                e.append(f"mix.{side}: src는 fred·naver·naver_index·csv 중 하나")
+            if lg and lg.get("src") == "naver" and not lg.get("fut"):
+                e.append(f"mix.{side}: naver는 fut(선물 코드, 예: GCcv1) 필요")
+    if src.get("type") == "calc" and src.get("name") not in SRC.CALCS:
+        e.append(f"calc: name은 {list(SRC.CALCS)} 중 하나")
     if src.get("type") == "hist" and not os.path.exists(os.path.join(DATA, "hist", str(src.get("file")))):
         e.append(f"hist: data/hist/{src.get('file')} 없음")
     if f.get("transform", "level") not in TRANSFORMS:
@@ -77,6 +91,9 @@ def validate(key, f, R=None):
     for k in ("lag_days", "stale_days"):
         if not isinstance(f.get(k), (int, float)) or f[k] < 0:
             e.append(f"{k}(0 이상 숫자) 필요")
+    for k in ("window_days", "min_n"):
+        if f.get(k) is not None and not (isinstance(f[k], (int, float)) and f[k] > 0):
+            e.append(f"{k}는 0보다 큰 숫자")
     for k in ("name", "why"):
         if not (f.get(k) or "").strip():
             e.append(f"{k} 필요")
@@ -120,6 +137,13 @@ def fetch(only=None, with_long=True):
                 series = {src["id"]: _fred(src["id"])}
             elif src["type"] == "fred_ratio":
                 series = {src["num"]: _fred(src["num"]), src["den"]: _fred(src["den"])}
+            elif src["type"] in ("mix", "calc"):
+                p = os.path.join(RAWDIR, f"{k}.json")
+                old = (json.load(open(p, encoding="utf-8")).get("state") if os.path.exists(p) else None)
+                val, st = SRC.combine(src, old)
+                with open(p, "w", encoding="utf-8") as fp:
+                    json.dump({"fetched": now, "series": {"value": SRC._dict(val)}, "state": st}, fp, ensure_ascii=False, separators=(",", ":"))
+                series = {}
             else:
                 series = {}
             if series:
@@ -165,6 +189,8 @@ def raw_series(key, f=None):
     ser = {sid: pd.Series({pd.Timestamp(k): v for k, v in obs.items()}).sort_index() for sid, obs in S.items()}
     if src["type"] == "fred":
         return ser.get(src["id"], pd.Series(dtype=float)).astype(float)
+    if src["type"] in ("mix", "calc"):
+        return ser.get("value", pd.Series(dtype=float)).astype(float)
     a, b = ser.get(src["num"]), ser.get(src["den"])
     if a is None or b is None:
         return pd.Series(dtype=float)
@@ -224,7 +250,7 @@ def series_for(key, dates, f=None):
     """날짜별 (변환값, 점수, 관측일)."""
     f = f or load()["factors"][key]
     tr = transformed(f, raw_series(key, f))
-    sc = scored(f, tr)
+    sc = scored(f, tr, int(f.get("window_days") or 1095), int(f.get("min_n") or 20))
     val, obs = at_dates(tr, dates, f["lag_days"], f["stale_days"])
     s, _ = at_dates(sc, dates, f["lag_days"], f["stale_days"])
     return val, s, obs
@@ -285,7 +311,8 @@ def meta(key, f=None):
     f = f or load()["factors"][key]
     src = f["source"]
     url = (f"https://fred.stlouisfed.org/series/{src['id']}" if src["type"] == "fred" else
-           f"https://fred.stlouisfed.org/series/{src['num']}" if src["type"] == "fred_ratio" else None)
+           f"https://fred.stlouisfed.org/series/{src['num']}" if src["type"] == "fred_ratio" else
+           (src.get("url") or (src.get("num") or {}).get("url")) if src["type"] == "mix" else None)
     tr = {"level": "값 그대로", "chg": f"{f.get('chg_days')}일 전과의 차이", "pct": f"{f.get('chg_days')}일 전 대비 변화율(%)"}[f.get("transform", "level")]
     up = "높을수록 점수가 높습니다" if f["direction"] == 1 else "낮을수록 점수가 높습니다"
     return {"key": key, "name": f["name"], "short": f.get("short") or f["name"][:6], "unit": f.get("unit", ""), "dec": f.get("dec", 2),
@@ -293,7 +320,8 @@ def meta(key, f=None):
             "formula": f"{tr}을 씁니다. 그날까지 공개된 최근 3년 값 중 지금 값이 어디쯤인지를 5등분해 1~5점을 매깁니다({up}).",
             "bins": [["최근 3년 중 상위 20%", 5 if f["direction"] == 1 else 1], ["상위 20~40%", 4 if f["direction"] == 1 else 2],
                      ["중간 20%", 3], ["하위 20~40%", 2 if f["direction"] == 1 else 4], ["하위 20%", 1 if f["direction"] == 1 else 5]],
-            "src": {"name": f.get("src_name") or (f"FRED {src.get('id') or src.get('num') + '/' + src.get('den')}" if src["type"] != "hist" else "자체 계산"), "url": url},
+            "src": {"name": f.get("src_name") or (SRC.describe(src) if src["type"] in ("mix", "calc") else
+                                                  f"FRED {src.get('id') or src.get('num') + '/' + src.get('den')}" if src["type"] != "hist" else "자체 계산"), "url": url},
             "added": f.get("activated") or f.get("added"), "why": f["why"]}
 
 

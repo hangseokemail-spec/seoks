@@ -3,6 +3,9 @@
 python3 scripts/committee.py brief <단계>   → data/raw/factor_brief.json (위원이 읽을 근거) — data/raw/committee/ 를 비운다
 python3 scripts/committee.py items         → 1라운드 제안(r1_<위원>.json)을 모아 안건 목록 data/raw/committee/items.json
 python3 scripts/committee.py tally         → 2라운드 투표(r2_<위원>.json)를 세어 data/raw/committee_result.json (합의된 안만)
+python3 scripts/committee.py brief <단계> --register-only   → 임시 위원회(등록만): 넣기·빼기는 하지 않고 새 후보 관찰 등록·자료 요청만 (선생님 지시가 있을 때)
+python3 scripts/committee.py apply-register → 임시 위원회 결과의 등록·요청만 data/factors.json에 반영(가중치·점검 기록은 그대로)
+근거 자료에는 팩터 도서관(data/factor_library.json: 논문·후보 정의)과 시험실 결과(data/raw/factor_lab.json)가 함께 들어갑니다(오늘 시험 결과가 없으면 brief가 먼저 시험을 돌림).
 
 1라운드 파일 data/raw/committee/r1_<F1|F2|O1|O2|O3>.json:
  {"member": "F1", "model": "Claude Fable 5.2", "summary": "2~4문장",
@@ -24,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import factor_lab as LAB  # noqa: E402
 import factors as FA  # noqa: E402
 import weights as WM  # noqa: E402
 import weights_eval as E  # noqa: E402
@@ -89,7 +93,32 @@ def effect(df, cur, grp, key, weight, remove=False):
     return {k: {"지금": a[k], "바꾸면": b[k]} for k in ("spx_20", "spx_60", "ndx_60", "kospi_20", "spx_60_최근52주")}
 
 
-def cmd_brief(level):
+def library_section():
+    """팩터 도서관 + 시험실 결과(위원이 등록 정의를 그대로 가져다 쓸 수 있게)."""
+    lab = LAB.OUT
+    if not os.path.exists(lab) or json.load(open(lab, encoding="utf-8")).get("date") != E.today_kst().isoformat():
+        try:
+            LAB.run(save=True)
+        except Exception as ex:  # noqa: BLE001
+            return {"오류": f"시험실 실행 실패: {str(ex)[:160]}"}
+    L = json.load(open(LAB.LIB, encoding="utf-8"))
+    o = json.load(open(lab, encoding="utf-8"))
+    R = FA.load()
+    cands = {}
+    for k, c in L["candidates"].items():
+        cands[k] = {"이름": c["def"]["name"], "상태": c.get("status"), "이미_등록됨": k in R["factors"],
+                    "근거_논문": [L["papers"][p]["cite"] + " — " + L["papers"][p]["finding"] for p in c.get("papers", []) if p in L["papers"]],
+                    "메모": c.get("note"), "시험_요약": c.get("lab"), "등록_정의(그대로 register def로 쓸 수 있음)": c["def"]}
+    return {"_안내": "팩터 도서관(선생님 지시 2026-11-21: 원자재 비율 등 정확한 수치로 얻을 수 있는 것을 후보로, 고정하지 말고 다양하게, 논문을 찾아 기억했다가 수치로 시험). "
+                     "'매수쪽' IC는 클수록 그 신호를 설계한 방향으로 읽었을 때 이후 S&P500을 잘 맞혔다는 뜻입니다(트렌드캐치 후보는 6−점수로 계산). 판정은 참고용입니다.",
+            "도서관_규칙": L.get("rules"), "시험_방법": o.get("방법"), "주의": o.get("주의"),
+            "기준선_지금_VIX점수(장기)": o.get("기준선_지금_VIX점수(장기)"),
+            "시험실_순위(13주IC, 도서관 후보 + 등록된 팩터)": o.get("순위_13주IC"),
+            "도서관_후보": cands, "자료_요청(도서관)": L.get("requests"),
+            "자세한_결과": os.path.relpath(lab, E.ROOT)}
+
+
+def cmd_brief(level, register_only=False):
     os.makedirs(CDIR, exist_ok=True)
     for f in glob.glob(os.path.join(CDIR, "*.json")):
         os.remove(f)
@@ -173,7 +202,12 @@ def cmd_brief(level):
         "사용_중인_지표": act,
         "지난_위원회": (R.get("committee_log") or [])[-6:],
         "자료_요청_목록": R.get("requests", []),
+        "팩터_도서관": library_section(),
     }
+    if register_only:
+        out["등록만"] = True
+        out["임시_위원회_안내"] = ("선생님 지시로 여는 임시 위원회입니다. 이번에는 새 후보 관찰 등록(register)과 자료 요청(request)만 합니다. "
+                              "넣기(add)·빼기(remove)는 정기 점검(주간·월간·분기)에서 단계 한도대로 하므로 이번에는 제안하지 마세요.")
     json.dump(out, open(BRIEF, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(json.dumps({"brief": os.path.relpath(BRIEF, E.ROOT), "후보": len(cands), "사용_중": len(act),
                       "넣을_수_있는_후보": [k for k, v in cands.items() if v["넣을_수_있나"]]}, ensure_ascii=False))
@@ -244,7 +278,8 @@ def cmd_tally():
         m = json.load(open(path, encoding="utf-8"))
         if m.get("member") in members:
             votes[m["member"]] = m.get("votes", {})
-    res = {"date": E.today_kst().isoformat(), "level": level, "members_voted": sorted(votes), "adds": [], "removes": [], "registers": [],
+    reg_only = bool(brief.get("등록만"))
+    res = {"date": E.today_kst().isoformat(), "level": level, "등록만": reg_only, "members_voted": sorted(votes), "adds": [], "removes": [], "registers": [],
            "requests": [], "rejected": [], "tally": {}}
     passed = []
     for it in items:
@@ -263,6 +298,9 @@ def cmd_tally():
     keep = {"tc": len(WM.keys_of(cur, "tc")), "lq": len(WM.keys_of(cur, "lq"))}
     for it, yes, ws in passed:
         a, k = it["action"], it["key"]
+        if reg_only and a in ("add", "remove"):
+            res["rejected"].append({"안건": it["안건"], "이유": "임시 위원회(등록만) — 넣기·빼기는 정기 점검에서"})
+            continue
         if a == "add":
             f = R["factors"].get(k)
             cb = (brief["후보(관찰_중)"].get(k) or {})
@@ -329,8 +367,32 @@ def cmd_tally():
     print(json.dumps({k: res[k] for k in ("level", "members_voted", "adds", "removes", "summary")} | {"registers": [x["key"] for x in res["registers"]]}, ensure_ascii=False, indent=1))
 
 
+def cmd_apply_register():
+    """임시 위원회(등록만) 결과 반영 — 새 후보 watch 등록과 위원회 기록만. 가중치 버전·점검 기록(reviews)은 건드리지 않는다."""
+    if not os.path.exists(RESULT):
+        sys.exit("위원회 결과(data/raw/committee_result.json)가 없습니다.")
+    com = json.load(open(RESULT, encoding="utf-8"))
+    today = E.today_kst().isoformat()
+    if com.get("date") != today or not com.get("등록만"):
+        sys.exit("오늘 임시 위원회(등록만) 결과가 아닙니다.")
+    W = WM.load()
+    cur = WM.current(W)
+    R = FA.load()
+    for g in com.get("registers", []):
+        d = dict(g["def"])
+        d.update({"status": "watch", "added": today, "by": "위원회 합의(임시 위원회)"})
+        R["factors"][g["key"]] = d
+    R.setdefault("committee_log", []).append({"date": today, "level": "임시(등록만)", "version": cur["v"], "adds": [], "removes": [],
+                                              "registers": [g["key"] for g in com.get("registers", [])],
+                                              "rejected": com.get("rejected", [])[:20], "summary": com.get("summary", "")})
+    FA.save(R)
+    LAB.sync_status()
+    print(json.dumps({"등록": [g["key"] for g in com.get("registers", [])], "요약": com.get("summary")}, ensure_ascii=False))
+
+
 if __name__ == "__main__":
-    a = sys.argv[1:]
-    if not a or a[0] not in ("brief", "items", "tally"):
+    a = [x for x in sys.argv[1:] if not x.startswith("--")]
+    if not a or a[0] not in ("brief", "items", "tally", "apply-register"):
         sys.exit(__doc__)
-    {"brief": lambda: cmd_brief(a[1] if len(a) > 1 else (E.level_of(E.today_kst()) or "weekly")), "items": cmd_items, "tally": cmd_tally}[a[0]]()
+    {"brief": lambda: cmd_brief(a[1] if len(a) > 1 else (E.level_of(E.today_kst()) or "weekly"), "--register-only" in sys.argv),
+     "items": cmd_items, "tally": cmd_tally, "apply-register": cmd_apply_register}[a[0]]()
